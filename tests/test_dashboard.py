@@ -8,6 +8,8 @@ import pytest
 from workshop_analytics.app import DASHBOARD_DIR
 from workshop_analytics.config import SESSION_COOKIE
 
+from .conftest import Seeded
+
 
 def with_cookie(value: str) -> dict[str, str]:
     return {"cookie": f"{SESSION_COOKIE}={value}"}
@@ -130,3 +132,33 @@ async def test_the_pages_link_their_assets_by_version(
 
     assert f"/static/live.js?v={version}" in entered.text
     assert (await client.get(f"/static/live.js?v={version}")).status_code == 200
+
+
+async def test_the_session_page_shows_the_timeline_to_a_signed_in_viewer(
+    client: httpx.AsyncClient, dashboard_token: str, seeded: Seeded
+) -> None:
+    signed_out = await client.get(f"/sessions/{seeded.gapped}")
+
+    assert signed_out.status_code == 401
+    assert 'name="token"' in signed_out.text
+
+    signed_in = await client.post("/login", data={"token": dashboard_token})
+    cookie = signed_in.cookies.get(SESSION_COOKIE)
+    page = await client.get(f"/sessions/{seeded.gapped}", headers=with_cookie(cookie))
+
+    assert page.status_code == 200
+    assert "hello-jupyterlab" in page.text
+    assert "workshop-start" in page.text
+    assert "missing events 10 to 12" in page.text
+    assert "course=advanced" in page.text
+    assert f"/sessions/{seeded.part1}" not in page.text
+
+    chained = await client.get(f"/sessions/{seeded.part2}", headers=with_cookie(cookie))
+
+    assert f'href="/sessions/{seeded.part1}"' in chained.text
+    assert "workshop-resume" in chained.text
+
+    missing = await client.get("/sessions/nothing", headers=with_cookie(cookie))
+
+    assert missing.status_code == 404
+    assert "There is no session" in missing.text

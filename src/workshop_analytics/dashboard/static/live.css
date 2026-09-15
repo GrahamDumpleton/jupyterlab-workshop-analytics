@@ -160,3 +160,54 @@ tr.ended td { opacity: 0.6; }
 .login-card form { display: grid; gap: 8px; }
 .login-card input { padding: 8px; border: 1px solid var(--line); border-radius: 6px; font: inherit; background: var(--ground); color: var(--ink); }
 .error { color: var(--lost); }
+
+/* A session's drill-down page. */
+
+.bar h1 a.back { color: inherit; text-decoration: none; }
+.bar h1 a.back:hover { text-decoration: underline; }
+
+.card { margin-bottom: 24px; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; }
+
+.card h2 {
+  font-size: 15px;
+  margin: 0;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+}
+
+.card h2 .count { color: var(--muted); font-weight: normal; font-size: 13px; }
+.card h2 .collection { color: var(--muted); font-weight: normal; font-size: 12px; }
+
+.summary dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+  margin: 0;
+  padding: 12px 14px;
+}
+
+.summary dt { color: var(--muted); font-size: 12px; font-weight: 600; }
+.summary dd { margin: 0; }
+
+.muted { color: var(--muted); font-size: 12px; }
+
+.label {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  border: 1px solid var(--line);
+}
+
+tr.current td { font-weight: 600; }
+
+.timeline td.ok, .timeline td.correct { color: var(--active); }
+.timeline td.error, .timeline td.incorrect { color: var(--lost); }
+.timeline td.skipped { color: var(--muted); }
+
+tr.gap-row td { color: var(--gap); font-size: 12px; background: var(--ground); }
+
+td code { font-size: 12px; }

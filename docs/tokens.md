@@ -27,7 +27,7 @@ the old key stops verifying at once.
 | ----- | ------- |
 | `jti` | The token's id, a UUID minted at issue. Rows keep it as `token_id`, and it is what the deny list names. |
 | `sub` | Who the token was issued to: a deployment, a collection author, a supervisor. Free text, for the operator's records. |
-| `scope` | What it may do: `ingest` (post events), `api` (read the API), `dashboard` (open the live view). A token may carry several. |
+| `scope` | What it may do: `ingest` (post events), `api` (read the [query API](api.md)), `dashboard` (open the live view). A token may carry several. |
 | `labels` | Labels bound to every event posted under the token, trusted because they are signed. See below. |
 | `origins` | Browser origins the token may post from, for a JupyterLite site. Empty for a server-side sender. |
 | `nbf`, `exp` | The validity window. `exp` is required at issue; there are no non-expiring tokens. |

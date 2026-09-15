@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Session {{ session_id[-8:] }}</title>
+  <link rel="stylesheet" href="/static/live.css?v={{ assets }}">
+</head>
+<body>
+  <header class="bar">
+    <h1><a href="/" class="back">Workshops in progress</a> / session {{ session_id[-8:] }}</h1>
+    <div class="viewer">
+      <span class="who">{{ viewer }}</span>
+      <form method="post" action="/logout"><button type="submit" class="link">Log out</button></form>
+    </div>
+  </header>
+
+  <main>
+  {% if detail is none %}
+    <p class="empty">There is no session <code>{{ session_id }}</code>.</p>
+  {% else %}
+    {% set s = detail.session %}
+    <section class="card summary">
+      <h2>{{ s.name }}
+        <span class="status status-{{ s.status }}">{{ s.status }}</span>
+        {% if s.gaps %}<span class="gap" title="missing events: {% for g in s.gaps %}{{ g[0] }}{% if g[1] != g[0] %}-{{ g[1] }}{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}">gap</span>{% endif %}
+        {% if s.collection %}<span class="collection">{{ s.collection }}</span>{% endif %}
+      </h2>
+      <dl>
+        <dt>Learner</dt><dd>{{ s.user or s.session_id[-8:] }} <span class="muted">{{ s.host }} · {{ s.frontend }} {{ s.frontend_version }} · {{ s.platform }} · instance {{ s.instance_id[:8] }}</span></dd>
+        <dt>Started</dt><dd><time datetime="{{ s.started_at }}">{{ s.started_at }}</time></dd>
+        {% if s.ended_at %}<dt>Ended</dt><dd><time datetime="{{ s.ended_at }}">{{ s.ended_at }}</time></dd>{% else %}<dt>Last event</dt><dd><time datetime="{{ s.last_seen }}">{{ s.last_seen }}</time></dd>{% endif %}
+        <dt>Duration</dt><dd>{{ s.duration_seconds | duration }}</dd>
+        <dt>Progress</dt><dd>{{ s.pages_done }} of {{ s.page_count }} pages done{% if s.current_page %}, on {{ s.current_page }}{% endif %}</dd>
+        <dt>Events</dt><dd>{{ s.events_received }} of {{ s.events_expected }} expected{% if s.complete %}, complete{% endif %}</dd>
+        <dt>Workshop</dt><dd>{{ s.workshop }} {{ s.version }} <span class="muted">{{ s.source }}</span></dd>
+        {% if s.labels %}<dt>Labels</dt><dd>{% for key, value in s.labels.items() %}<span class="label">{{ key }}={{ value }}</span> {% endfor %}</dd>{% endif %}
+        {% if s.token_id %}<dt>Token</dt><dd>{{ s.token_id }}</dd>{% endif %}
+        {% if detail.chain | length > 1 %}<dt>Chain</dt><dd>{% for id in detail.chain %}{% if id == s.session_id %}<strong>{{ id }}</strong>{% else %}<a href="/sessions/{{ id }}">{{ id }}</a>{% endif %}{% if not loop.last %} → {% endif %}{% endfor %}</dd>{% endif %}
+        {% if s.restarted_from %}<dt>Restarted from</dt><dd><a href="/sessions/{{ s.restarted_from }}">{{ s.restarted_from }}</a></dd>{% endif %}
+      </dl>
+    </section>
+
+    <section class="card">
+      <h2>Pages</h2>
+      <table>
+        <thead><tr><th>#</th><th>Page</th><th>Entered</th><th>Left</th><th>Active</th><th>Entries</th></tr></thead>
+        <tbody>
+        {% for visit in detail.pages %}
+          <tr class="{% if visit.page.id == s.current_page %}current{% endif %}">
+            <td>{{ visit.position }}</td>
+            <td title="{{ visit.page.title }}">{{ visit.page.path.rsplit('/', 1)[-1] }}</td>
+            <td>{{ "yes" if visit.entered else "" }}</td>
+            <td>{{ "yes" if visit.left else "" }}</td>
+            <td>{{ visit.active_seconds | duration if visit.active_seconds else "" }}</td>
+            <td>{{ visit.entries or "" }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <h2>Timeline <span class="count">{{ detail.timeline | length }} events</span></h2>
+      <table class="timeline">
+        <thead><tr><th>Seq</th><th>Time</th><th>Kind</th><th>Page</th><th>Id</th><th>Status</th><th>Detail</th></tr></thead>
+        <tbody>
+        {% for entry in detail.timeline %}
+          {% if loop.previtem is defined and entry.seq > loop.previtem.seq + 1 %}
+          <tr class="gap-row"><td colspan="7">missing events {{ loop.previtem.seq + 1 }}{% if entry.seq - 1 != loop.previtem.seq + 1 %} to {{ entry.seq - 1 }}{% endif %}</td></tr>
+          {% elif loop.first and entry.seq > 1 %}
+          <tr class="gap-row"><td colspan="7">missing events 1{% if entry.seq > 2 %} to {{ entry.seq - 1 }}{% endif %}</td></tr>
+          {% endif %}
+          <tr>
+            <td>{{ entry.seq }}</td>
+            <td><time datetime="{{ entry.ts }}" data-clock>{{ entry.ts[11:19] }}</time></td>
+            <td>{{ entry.kind }}</td>
+            <td>{{ entry.page }}</td>
+            <td>{{ entry.id }}</td>
+            <td class="{{ entry.status }}">{{ entry.status }}</td>
+            <td class="muted">{{ entry.detail | detail }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  {% endif %}
+  </main>
+
+  <script>
+    // Times arrive as UTC; show them in the viewer's own clock.
+    document.querySelectorAll("time[datetime]").forEach(function (element) {
+      const date = new Date(element.getAttribute("datetime"));
+      if (isNaN(date.getTime())) return;
+      element.title = element.getAttribute("datetime");
+      element.textContent = element.hasAttribute("data-clock")
+        ? date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+        : date.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+    });
+  </script>
+</body>
+</html>

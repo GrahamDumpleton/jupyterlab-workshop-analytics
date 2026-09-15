@@ -42,16 +42,18 @@ Three layers, with one rule each:
   module: the ingest pipeline, the projection and the store's writes
   at the granularity of a batch (the per-event helpers beneath them
   would add a span per event and say nothing a batch's span does
-  not), the broadcaster, and the store's `migrate`, so the statements
+  not), the broadcaster, the store's `migrate`, so the statements
   that bring the schema up to date at startup nest under one call
-  instead of each standing as its own root. Dropping or adding a call
-  site needs no code change. The top-level `capture = "summary"`
-  keeps recorded values bounded, the batch itself is redacted where
-  it is an argument, and the two functions that return bulk data, the
-  parser returning the batch and `live_rows` returning the page's
-  sessions, have entries of their own with `capture_result = "shape"`,
-  so the call is seen with the size of what it returned and the data
-  is not.
+  instead of each standing as its own root, and the query layer's
+  questions, one span per question with the filters as its
+  arguments and the statements it ran beneath it. Dropping or adding
+  a call site needs no code change. The top-level `capture =
+  "summary"` keeps recorded values bounded, the batch itself is
+  redacted where it is an argument, and the functions that return
+  bulk data, the parser returning the batch, `live_rows` returning
+  the page's sessions and the questions returning whole reports,
+  have `capture_result = "shape"`, so the call is seen with the size
+  of what it returned and the data is not.
 
 - **What only the code knows** is embedded, because nothing outside
   can place it: `block("ingest.parse")`, `block("ingest.store")` and
@@ -114,12 +116,12 @@ compiled from the expression language, so turning it on is safe, and
 off is the shipped default. The token never reaches a trace: it
 travels as a header, which the request middleware does not record,
 and the query fallback is masked by name. Event bodies are not
-captured: the pipeline's batch argument is redacted, the parser's
-and the live view's results record as shapes, the pipeline's result
-leaves its session deltas out of its repr, and the endpoints record
-their results as shapes under the `fastapi` package's default. The
-dashboard's render context is masked wholesale by the Jinja2
-instrumentation.
+captured: the pipeline's batch argument is redacted, the parser's,
+the live view's and the query layer's results record as shapes, the
+pipeline's result leaves its session deltas out of its repr, and the
+endpoints record their results as shapes under the `fastapi`
+package's default. The dashboard's render context is masked wholesale
+by the Jinja2 instrumentation.
 
 ## In the tests
 

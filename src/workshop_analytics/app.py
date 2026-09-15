@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from . import __version__
-from .api import dashboard, health, live, sink
+from .api import dashboard, health, live, query, sink
 from .config import Settings
 from .ingest import Ingest, RateLimiter
 from .live import Broadcaster
@@ -85,11 +85,14 @@ def create_app(
         broadcaster=app.state.broadcaster,
     )
     app.state.templates = Jinja2Templates(directory=str(DASHBOARD_DIR / "templates"))
+    app.state.templates.env.filters["duration"] = dashboard.duration_text
+    app.state.templates.env.filters["detail"] = dashboard.detail_text
     app.state.assets_version = assets_version(DASHBOARD_DIR / "static")
 
     app.include_router(health.router)
     app.include_router(sink.router)
     app.include_router(live.router)
+    app.include_router(query.router)
     app.include_router(dashboard.router)
     app.mount(
         "/static", StaticFiles(directory=str(DASHBOARD_DIR / "static")), name="static"

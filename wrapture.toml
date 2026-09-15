@@ -77,6 +77,33 @@ capture_result = "shape"
 target = "workshop_analytics.live:Broadcaster"
 match = "*"
 
+# The questions the query API answers, one span per question with the
+# filters as its arguments. Their results are whole reports, so they
+# are captured as shapes; the helpers beneath them (loading, chaining,
+# percentiles) would add spans per session and are left out.
+
+[[observe]]
+target = "workshop_analytics.queries"
+name = [
+  "describe",
+  "list_workshops",
+  "list_collections",
+  "collection_progress",
+  "workshop_summary",
+  "funnel",
+  "page_timings",
+  "action_usages",
+  "checks",
+  "trends",
+  "list_sessions",
+  "session_detail",
+  "session_events",
+  "query_events",
+  "instance",
+  "learners",
+]
+capture_result = "shape"
+
 [[observe]]
 target = "workshop_analytics.store.writes"
 name = ["insert_events"]

@@ -9,7 +9,7 @@ wraps the common tasks; `just --list` shows them.
 
 | Target | What it does |
 | ------ | ------------ |
-| `just serve` | Runs the service with `wrapture.toml` applied. Needs `TOKEN_SIGNING_KEY`. |
+| `just serve` | Runs the service with `wrapture.toml` applied. Needs `TOKEN_SIGNING_KEY`. The OpenAPI document is at `/docs`. |
 | `just test` | Runs pytest; arguments pass through, so `just test tests/test_ingest.py -k labels` works. |
 | `just lint`, `just format` | ruff, checking and fixing. |
 | `just typecheck` | mypy, strict, over the package. |
@@ -99,7 +99,12 @@ showcase and example workshops under the extension's self-test,
 recorded by extension 0.2.0. The projection tests derive the gap,
 missing-tail and missing-head cases by dropping lines from them, and
 `shifted_to_now()` in `conftest.py` moves a fixture's timestamps so a
-session reads as live whenever the test runs. To record a new
+session reads as live whenever the test runs. The `seeded` fixture
+fills a store with every shape the query and API tests need from the
+three recordings: a complete session posted under a labelled token, a
+gapped one, a headless one, a lost one, a live one, a two-session
+chain with an identified learner, the same workshop under two
+collections, and a collection two instances took. To record a new
 fixture, run a workshop's self-test in place and take the
 `_workshop/events.jsonl` it leaves:
 
@@ -107,6 +112,26 @@ fixture, run a workshop's self-test in place and take the
 $ jupyter workshop test path/to/workshop --in-place
 $ cp path/to/workshop/_workshop/events.jsonl tests/fixtures/<name>.jsonl
 ```
+
+## The query layer
+
+`queries.py` holds every question as a function taking a connection,
+the typed `Filters` and the settings, and returning plain dataclasses.
+The routes in `api/query.py` are thin wrappers that parse the query
+string, run the function on the thread pool and return its result, so
+FastAPI derives the OpenAPI document from the same dataclasses the
+answers are built from. The MCP tools of a later phase wrap the same
+functions, so the two can never answer differently.
+
+Sessions are narrowed by the indexed columns in SQL and by what only
+Python knows afterwards: the label selector, since labels are JSON,
+and the status, since it is derived at read time. Chaining sessions
+into journeys, the funnel, the percentiles and the data quality note
+are computed in Python over the selected rows, one code path for
+SQLite and PostgreSQL. A new question is a function in `queries.py`,
+a route in `api/query.py`, a test in `tests/test_queries.py`, its
+observe entry in `wrapture.toml` if it is a top-level question, and
+its row on the [API](api.md) page.
 
 ## The vendored schema
 

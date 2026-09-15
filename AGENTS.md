@@ -23,10 +23,11 @@ Layout:
   `workshop-analytics` command; `app.py` the ASGI factory; `ingest.py`
   the sink pipeline shared by the endpoint and the `import` command;
   `projection.py` the sessions projection and its status rules;
-  `live.py` the broadcaster and the SSE stream; `tokens.py` the signed
-  tokens; `store/` the SQLAlchemy Core tables, engine and Alembic
-  migrations; `api/` the routers; `dashboard/` the Jinja2 templates
-  and the one static script.
+  `live.py` the broadcaster and the SSE stream; `queries.py` every
+  question the query API answers, as functions returning dataclasses;
+  `tokens.py` the signed tokens; `store/` the SQLAlchemy Core tables,
+  engine and Alembic migrations; `api/` the routers; `dashboard/` the
+  Jinja2 templates and the one static script.
 
 - `tests/` is the pytest suite, driven by the wrapture pytest plugin.
   `tests/fixtures/` holds `events.jsonl` files from real workshop runs;

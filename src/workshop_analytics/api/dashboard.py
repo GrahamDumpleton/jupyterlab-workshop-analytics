@@ -1,12 +1,16 @@
-"""The live dashboard page, its login and its logout."""
+"""The live dashboard page, a session's drill-down, the login and the logout."""
 
 from __future__ import annotations
 
 from typing import Any
 
 from fastapi import APIRouter, Form, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
+from .. import queries
+from ..queries import NotFound, SessionDetail
+from ..store.writes import utcnow
 from ..tokens import TokenError
 from .auth import (
     clear_session_cookie,
@@ -81,6 +85,62 @@ async def dashboard(request: Request) -> Response:
         labels=request.query_params.get("labels", ""),
         linger=request.app.state.settings.linger,
     )
+
+
+@router.get(
+    "/sessions/{session_id}", response_class=HTMLResponse, include_in_schema=False
+)
+async def session_page(request: Request, session_id: str) -> Response:
+    """One session's drill-down: its summary, its pages and its timeline.
+
+    Rendered on the server from the same query the API answers, so the
+    dashboard cookie never needs to reach the query API.
+    """
+
+    session = read_session(request)
+
+    if session is None:
+        return render(request, "login.html", error="", status_code=401)
+
+    settings = request.app.state.settings
+
+    def question() -> SessionDetail:
+        with request.app.state.engine.connect() as connection:
+            return queries.session_detail(connection, session_id, utcnow(), settings)
+
+    try:
+        detail: SessionDetail | None = await run_in_threadpool(question)
+    except NotFound:
+        detail = None
+
+    return render(
+        request,
+        "session.html",
+        viewer=session.name,
+        session_id=session_id,
+        detail=detail,
+        status_code=200 if detail is not None else 404,
+    )
+
+
+def duration_text(seconds: float) -> str:
+    """Seconds as the short form the pages use: 45s, 12m, 1h 05m."""
+
+    whole = int(seconds)
+
+    if whole < 60:
+        return f"{whole}s"
+
+    if whole < 3600:
+        return f"{whole // 60}m"
+
+    return f"{whole // 3600}h {(whole % 3600) // 60:02d}m"
+
+
+def detail_text(detail: dict[str, Any]) -> str:
+    """A timeline entry's extra fields as `key=value` pairs."""
+
+    return " ".join(f"{key}={value}" for key, value in detail.items())
 
 
 @router.get("/login", response_class=HTMLResponse, include_in_schema=False)

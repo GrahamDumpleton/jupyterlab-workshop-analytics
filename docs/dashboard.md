@@ -52,11 +52,11 @@ here.
 
 - **Learner** is the `user` when the deployment supplies one (a
   JupyterHub with `identity: hub`) and the last eight characters of
-  the session id otherwise. Beneath it, the host, the frontend and a
-  prefix of the instance id: the running JupyterLab the session
-  belongs to. Sessions of one instance sit together within a
-  workshop's group, so a learner doing the second workshop of three
-  reads as one line of progress.
+  the session id otherwise, linked to the session's own page. Beneath
+  it, the host, the frontend and a prefix of the instance id: the
+  running JupyterLab the session belongs to. Sessions of one instance
+  sit together within a workshop's group, so a learner doing the
+  second workshop of three reads as one line of progress.
 
 - **Elapsed** is how long the session has been running, ticking
   locally between updates, and fixed at its length once it has
@@ -102,6 +102,22 @@ A **gap** marker beside the status means the session is missing
 events: every event carries a sequence number, so the service knows
 when a batch never arrived. Hovering shows the missing ranges. The
 marker appears the moment the event after the gap arrives.
+
+## A session's page
+
+Clicking a learner opens `/sessions/<id>`, the session on its own:
+a summary card with its status, when it started and ended or was
+last heard from, its duration, its progress through the pages, how
+many of its events arrived, its workshop, labels and token, and the
+chain of sessions it belongs to when it resumed another or was
+resumed; a table of the workshop's pages with whether each was
+entered and left, the active time on it and how many times it was
+entered; and the timeline, every event in order with its kind, page,
+id, status and the kind's own fields, with a marked row wherever
+events are missing. The page is rendered on the server from the same
+query the API answers at `/api/sessions/{id}` ([API](api.md)), and
+the same cookie opens it. Times are shown in the browser's own
+clock, with the UTC timestamp on hover.
 
 ## Under the page
 

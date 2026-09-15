@@ -11,7 +11,8 @@ from __future__ import annotations
 
 import json
 from collections.abc import AsyncIterator, Iterator
-from datetime import UTC, datetime
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -202,3 +203,202 @@ def bearer(token: str) -> dict[str, str]:
         "authorization": f"Bearer {token}",
         "content-type": "application/x-ndjson",
     }
+
+
+def variant(
+    events: list[dict[str, Any]],
+    session_id: str,
+    *,
+    instance_id: str = "",
+    collection: str | None = None,
+    user: str = "",
+    drop: tuple[int, ...] = (),
+    keep: int | None = None,
+    shift: timedelta | None = None,
+) -> list[dict[str, Any]]:
+    """Copies of a fixture's events as another session, altered as asked.
+
+    `drop` leaves out events by `seq`, `keep` keeps only the first so
+    many, `shift` moves every timestamp, and the rest re-identify the
+    session; together they make the gapped, headless, lost, live and
+    collected sessions the query tests need from the three recordings.
+    """
+
+    copies: list[dict[str, Any]] = []
+
+    for event in events[:keep] if keep is not None else events:
+        if event["seq"] in drop:
+            continue
+
+        copy = dict(event, session_id=session_id)
+
+        if instance_id:
+            copy["instance_id"] = instance_id
+
+        if collection is not None:
+            copy["collection"] = collection
+
+        if user:
+            copy["user"] = user
+
+        if shift is not None:
+            moment = datetime.fromisoformat(copy["ts"].replace("Z", "+00:00")) + shift
+            copy["ts"] = (
+                moment.strftime("%Y-%m-%dT%H:%M:%S.")
+                + f"{moment.microsecond // 1000:03d}Z"
+            )
+
+        copies.append(copy)
+
+    return copies
+
+
+def resumed(
+    events: list[dict[str, Any]],
+    session_id: str,
+    resumed_from: str,
+    *,
+    after: int,
+    shift: timedelta,
+    user: str = "",
+) -> list[dict[str, Any]]:
+    """The tail of a recording as a session resuming another.
+
+    The events after `seq` `after` are renumbered from 2 behind a
+    `workshop-resume` built from the recording's start event, so the
+    chain reads as the recording did: a stop, and a later resume from
+    where it left off.
+    """
+
+    start = next(event for event in events if event["kind"] == "workshop-start")
+    tail = [event for event in events if event["seq"] > after]
+    first_page = next(
+        (event["page"] for event in tail if event.get("page")), start["page"]
+    )
+    resume = dict(
+        start,
+        kind="workshop-resume",
+        page=first_page,
+        resumed_from=resumed_from,
+        seq=1,
+        ts=tail[0]["ts"],
+    )
+
+    resume.pop("restarted_from", None)
+
+    renumbered = [resume] + [
+        dict(event, seq=index) for index, event in enumerate(tail, start=2)
+    ]
+
+    return variant(renumbered, session_id, user=user, shift=shift)
+
+
+COLLECTION = "https://example.org/collection.json"
+
+
+@dataclass
+class Seeded:
+    """What `seed()` put in a store, by the ids the tests refer to."""
+
+    ingest_token: str
+    token_id: str
+    hello: list[dict[str, Any]]
+    why: list[dict[str, Any]]
+    guided: list[dict[str, Any]]
+    complete: str
+    gapped: str
+    headless: str
+    lost: str
+    live: str
+    part1: str
+    part2: str
+
+
+def seed(app: Any, key: bytes) -> Seeded:
+    """Fill the application's store with sessions of every shape.
+
+    From the three recordings: a complete session posted under a token
+    with a label, a gapped one, a headless one, a lost one, a live one,
+    a two-session chain with an identified learner, the same workshop
+    under two collections, and a collection two instances took.
+    """
+
+    token, claims = mint(key, labels={"course": "intro"}, name="class")
+    ingest = app.state.ingest
+    hello = load_fixture("hello-jupyterlab")
+    why = load_fixture("why-a-workshop")
+    guided = load_fixture("guided-not-documented")
+    hour = timedelta(hours=1)
+
+    ingest.accept(hello, claims)
+    ingest.accept(
+        variant(hello, "hello-gap", instance_id="inst-gap", drop=(10, 11, 12)),
+        None,
+        extra_labels={"course": "advanced"},
+    )
+    ingest.accept(
+        variant(hello, "hello-headless", instance_id="inst-head", drop=(1, 2, 3)), None
+    )
+    ingest.accept(
+        variant(hello, "hello-lost", instance_id="inst-lost", user="bob", keep=30), None
+    )
+    ingest.accept(
+        variant(shifted_to_now(hello), "hello-live", instance_id="inst-live", keep=20),
+        None,
+    )
+    ingest.accept(
+        variant(hello, "hello-part1", instance_id="inst-chain", user="alice", keep=25),
+        None,
+    )
+    ingest.accept(
+        resumed(
+            hello, "hello-part2", "hello-part1", after=25, shift=2 * hour, user="alice"
+        ),
+        None,
+    )
+    ingest.accept(why, None)
+    ingest.accept(
+        variant(why, "why-coll", instance_id="inst-coll", collection=COLLECTION), None
+    )
+    ingest.accept(
+        variant(
+            guided,
+            "guided-coll",
+            instance_id="inst-coll",
+            collection=COLLECTION,
+            shift=hour,
+        ),
+        None,
+    )
+    ingest.accept(
+        variant(
+            guided,
+            "guided-coll-2",
+            instance_id="inst-coll-2",
+            collection=COLLECTION,
+            keep=8,
+        ),
+        None,
+    )
+
+    return Seeded(
+        ingest_token=token,
+        token_id=claims.jti,
+        hello=hello,
+        why=why,
+        guided=guided,
+        complete=hello[0]["session_id"],
+        gapped="hello-gap",
+        headless="hello-headless",
+        lost="hello-lost",
+        live="hello-live",
+        part1="hello-part1",
+        part2="hello-part2",
+    )
+
+
+@pytest.fixture
+def seeded(app: Any, key: bytes) -> Seeded:
+    """The application's store filled by `seed()`."""
+
+    return seed(app, key)
