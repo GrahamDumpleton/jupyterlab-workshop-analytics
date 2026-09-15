@@ -12,16 +12,15 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from datetime import datetime
+from dataclasses import dataclass
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import Response
 from sqlalchemy import Connection
 
 from .. import queries
-from ..projection import STATUSES
 from ..queries import (
     ActionUsages,
     AmbiguousWorkshop,
@@ -44,25 +43,13 @@ from ..queries import (
     WorkshopListing,
     WorkshopSummary,
 )
-from ..selectors import SelectorError, parse_selector
+from ..sql import SqlDisabled, SqlError, SqlResult, SqlTimeout
 from ..store.writes import utcnow
 from .auth import require_api
 
 router = APIRouter(prefix="/api", dependencies=[Depends(require_api)])
 
 NDJSON = "application/x-ndjson"
-
-
-def parse_when(value: str, name: str) -> datetime | None:
-    """A `since` or `until` value as naive UTC, or a 400."""
-
-    if not value.strip():
-        return None
-
-    try:
-        return queries.parse_moment(value)
-    except ValueError as error:
-        raise HTTPException(400, f"{name} must be an ISO 8601 timestamp") from error
 
 
 def filters(
@@ -90,31 +77,23 @@ def filters(
     """The common filters, parsed from the query string."""
 
     try:
-        terms = parse_selector(labels) if labels.strip() else ()
-    except SelectorError as error:
+        return queries.parse_filters(
+            labels=labels,
+            collection=collection,
+            source=source,
+            version=version,
+            frontend=frontend,
+            host=host,
+            platform=platform,
+            token_id=token_id,
+            user=user,
+            since=since,
+            until=until,
+            status=status,
+            include_incomplete=include_incomplete,
+        )
+    except QueryError as error:
         raise HTTPException(400, str(error)) from error
-
-    statuses = tuple(part.strip() for part in status.split(",") if part.strip())
-    unknown = [part for part in statuses if part not in STATUSES]
-
-    if unknown:
-        raise HTTPException(400, f"unknown status {', '.join(unknown)}")
-
-    return Filters(
-        labels=terms,
-        collection=None if collection is None else collection.strip(),
-        source=source.strip(),
-        version=version.strip(),
-        frontend=frontend.strip(),
-        host=host.strip(),
-        platform=platform.strip(),
-        token_id=token_id.strip(),
-        user=user.strip(),
-        since=parse_when(since, "since"),
-        until=parse_when(until, "until"),
-        status=statuses,
-        include_incomplete=include_incomplete,
-    )
 
 
 CommonFilters = Annotated[Filters, Depends(filters)]
@@ -493,3 +472,32 @@ async def instance(request: Request, instance_id: str) -> Instance:
     return await answer(
         request, lambda c: queries.instance(c, instance_id, utcnow(), settings)
     )
+
+
+@dataclass
+class SqlRequest:
+    """The body of a SQL request."""
+
+    sql: str
+    params: dict[str, Any] | None = None
+    limit: int | None = None
+
+
+@router.post("/sql", summary="Run one read-only SQL statement")
+async def run_sql(request: Request, body: Annotated[SqlRequest, Body()]) -> SqlResult:
+    """One SELECT or WITH against the store in its own dialect, with named
+    `:params`, rows capped and the statement stopped at a deadline. The
+    tables, the dialect and the notes on the JSON columns are in
+    `describe`. A deployment can turn the tool off, in which case this
+    answers 404."""
+
+    tool = request.app.state.sql
+
+    try:
+        return await run_in_threadpool(tool.run, body.sql, body.params, body.limit)
+    except SqlDisabled as error:
+        raise HTTPException(404, str(error)) from error
+    except SqlTimeout as error:
+        raise HTTPException(408, str(error)) from error
+    except SqlError as error:
+        raise HTTPException(400, str(error)) from error

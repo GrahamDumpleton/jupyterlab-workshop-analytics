@@ -29,7 +29,8 @@ from . import __version__
 from .config import Settings
 from .projection import LIVE_STATUSES, STATUSES, Session, status_of
 from .schema import SCHEMA_VERSION, load_schema
-from .selectors import Term, matches
+from .selectors import SelectorError, Term, matches, parse_selector
+from .sql import describe_sql
 from .store.tables import events, sessions
 
 SESSION_FIELDS = (
@@ -110,6 +111,67 @@ class Filters:
         values.update(changes)
 
         return Filters(**values)
+
+
+def parse_filters(
+    *,
+    labels: str = "",
+    name: str = "",
+    collection: str | None = None,
+    source: str = "",
+    version: str = "",
+    frontend: str = "",
+    host: str = "",
+    platform: str = "",
+    token_id: str = "",
+    user: str = "",
+    since: str = "",
+    until: str = "",
+    status: str = "",
+    include_incomplete: bool = False,
+) -> Filters:
+    """The filters from their textual form, as a query string or a tool call.
+
+    A selector that cannot be read, a timestamp that is not ISO 8601 or
+    a status that is not one of the seven is a `QueryError`.
+    """
+
+    try:
+        terms = parse_selector(labels) if labels.strip() else ()
+    except SelectorError as error:
+        raise QueryError(str(error)) from error
+
+    statuses = tuple(part.strip() for part in status.split(",") if part.strip())
+    unknown = [part for part in statuses if part not in STATUSES]
+
+    if unknown:
+        raise QueryError(f"unknown status {', '.join(unknown)}")
+
+    def when(value: str, field: str) -> datetime | None:
+        if not value.strip():
+            return None
+
+        try:
+            return parse_moment(value)
+        except ValueError as error:
+            raise QueryError(f"{field} must be an ISO 8601 timestamp") from error
+
+    return Filters(
+        labels=terms,
+        name=name.strip(),
+        collection=None if collection is None else collection.strip(),
+        source=source.strip(),
+        version=version.strip(),
+        frontend=frontend.strip(),
+        host=host.strip(),
+        platform=platform.strip(),
+        token_id=token_id.strip(),
+        user=user.strip(),
+        since=when(since, "since"),
+        until=when(until, "until"),
+        status=statuses,
+        include_incomplete=include_incomplete,
+    )
 
 
 @dataclass
@@ -2048,6 +2110,7 @@ class Description:
     labels: list[LabelKey]
     collections: list[str]
     identity: dict[str, Any]
+    sql: dict[str, Any]
 
 
 STATUS_MEANINGS = {
@@ -2233,6 +2296,7 @@ def describe(connection: Connection, now: datetime, settings: Settings) -> Descr
         labels=label_keys(rows),
         collections=sorted({str(row.collection) for row in rows if row.collection}),
         identity=identity_availability(rows),
+        sql=describe_sql(settings, connection.dialect.name),
     )
 
 
@@ -2347,6 +2411,7 @@ __all__ = [
     "collection_progress",
     "describe",
     "funnel",
+    "parse_filters",
     "instance",
     "learners",
     "list_collections",

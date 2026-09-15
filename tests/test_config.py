@@ -16,6 +16,9 @@ def test_defaults_suit_a_laptop() -> None:
     assert settings.allowed_origins == ()
     assert settings.active_allowance == 150.0
     assert settings.cookie_secure is None
+    assert settings.sql_tool is True
+    assert settings.sql_timeout == 10.0
+    assert settings.sql_max_rows == 1000
 
 
 def test_every_variable_is_read() -> None:
@@ -34,6 +37,9 @@ def test_every_variable_is_read() -> None:
             "RATE_LIMIT_PER_MINUTE": "5",
             "SESSION_HOURS": "2",
             "COOKIE_SECURE": "true",
+            "SQL_TOOL": "off",
+            "SQL_TIMEOUT": "2.5",
+            "SQL_MAX_ROWS": "50",
         }
     )
 
@@ -50,4 +56,7 @@ def test_every_variable_is_read() -> None:
     assert settings.rate_limit_per_minute == 5
     assert settings.session_hours == 2.0
     assert settings.cookie_secure is True
+    assert settings.sql_tool is False
+    assert settings.sql_timeout == 2.5
+    assert settings.sql_max_rows == 50
     assert Settings.from_environment({"COOKIE_SECURE": "off"}).cookie_secure is False

@@ -11,12 +11,13 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import __version__
+from . import __version__, mcp
 from .api import dashboard, health, live, query, sink
 from .config import Settings
 from .ingest import Ingest, RateLimiter
 from .live import Broadcaster
 from .schema import EventValidator
+from .sql import SqlTool
 from .store import make_engine, migrate
 from .tokens import DenyList, decode_key
 
@@ -59,9 +60,15 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        yield
+        # The MCP transport's session manager lives for the application;
+        # mounting its app does not run its own lifespan.
+        async with app.state.mcp.session_manager.run():
+            yield
 
         engine.dispose()
+
+        if app.state.sql.engine is not None:
+            app.state.sql.engine.dispose()
 
     app = FastAPI(
         title="jupyterlab-workshop analytics",
@@ -88,12 +95,14 @@ def create_app(
     app.state.templates.env.filters["duration"] = dashboard.duration_text
     app.state.templates.env.filters["detail"] = dashboard.detail_text
     app.state.assets_version = assets_version(DASHBOARD_DIR / "static")
+    app.state.sql = SqlTool(settings)
 
     app.include_router(health.router)
     app.include_router(sink.router)
     app.include_router(live.router)
     app.include_router(query.router)
     app.include_router(dashboard.router)
+    app.state.mcp = mcp.mount(app)
     app.mount(
         "/static", StaticFiles(directory=str(DASHBOARD_DIR / "static")), name="static"
     )

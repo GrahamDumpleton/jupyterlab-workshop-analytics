@@ -34,7 +34,8 @@ Put the first in the deployment's `analytics` block as `token`, with
 `sink` set to `http://127.0.0.1:8080/events`; paste the second into
 the login form at `http://127.0.0.1:8080/`; send the third as a bearer
 token to the query API, whose document is at
-`http://127.0.0.1:8080/docs`. `just import
+`http://127.0.0.1:8080/docs`, or give it to an assistant as the MCP
+server at `http://127.0.0.1:8080/mcp`. `just import
 tests/fixtures/hello-jupyterlab.jsonl` seeds the store with a recorded
 run when there is no workshop to hand.
 
@@ -47,7 +48,11 @@ run when there is no workshop to hand.
   what each status means, and a session's own page.
 
 - [The query API](docs/api.md): the routes, the filters, workshop
-  identity, journeys and outcomes, completeness and data quality.
+  identity, journeys and outcomes, completeness and data quality, and
+  the read-only SQL tool.
+
+- [The MCP server](docs/mcp.md): connecting an assistant to `/mcp`,
+  the tools, and the reporting skill under `skills/`.
 
 - [The command line](docs/cli.md): every `workshop-analytics`
   command.

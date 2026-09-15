@@ -15,7 +15,8 @@ metric definitions, the filters, and what the store actually holds:
 the label keys and values seen, the collections, the hosts and
 frontends, and whether sessions carry a learner identity, per token
 and per host. A client that reads it first asks questions of fields
-that exist with values that occur.
+that exist with values that occur. The same questions are tools on
+the [MCP server](mcp.md) at `/mcp`.
 
 ## The routes
 
@@ -38,6 +39,7 @@ that exist with values that occur.
 | `GET /api/sessions/{id}/events` | The raw events of one session, JSON or JSON lines. |
 | `GET /api/events` | The escape hatch: raw events by any filter, cursor paged, JSON or JSON lines. |
 | `GET /api/instances/{id}` | The sessions of one running frontend in the order they started, with each workshop's outcome. |
+| `POST /api/sql` | One read-only SQL statement against the store, when the tool is enabled. See below. |
 | `GET /api/live`, `GET /api/live/stream` | The sessions in progress and the event stream ([dashboard](dashboard.md)); these two also accept a `dashboard` token or the dashboard's cookie. |
 | `GET /healthz` | Liveness; no token. |
 
@@ -269,6 +271,53 @@ answer: a hub can be asked who has not finished, an anonymous
 deployment only how many. `GET /api/workshops/{name}/learners` groups
 by `user` and counts the sessions that carried none as
 `anonymous_sessions`.
+
+## The SQL tool
+
+`POST /api/sql` runs one statement against the store in its own
+dialect, for the questions nobody wrote a route for: joins across
+sessions and events, sequences of pages or attempts, cohorts by
+weekday or hub user, late-arriving batches under a token. The body is
+JSON:
+
+```json
+{"sql": "select name, count(*) as n from sessions where user = :u group by name",
+ "params": {"u": "alice"},
+ "limit": 100}
+```
+
+and the answer is the columns, the rows, the row count, whether the
+rows were cut at the cap, and the time taken:
+
+```json
+{"columns": ["name", "n"], "rows": [["intro-git", 3]], "row_count": 1,
+ "truncated": false, "elapsed_ms": 0.4}
+```
+
+What keeps it safe is what it cannot do. The statement must be a
+single `SELECT`, `WITH` or `EXPLAIN`; a semicolon may only end it,
+and anything else answers 400 with the reason. It runs on a second
+engine opened read-only (`mode=ro` and `query_only` on SQLite, a
+read-only transaction on PostgreSQL, whose role should be read-only
+too), so a `WITH` that writes fails there. It is stopped at
+`SQL_TIMEOUT` seconds (10 by default), answering 408, by a progress
+handler on SQLite and `statement_timeout` on PostgreSQL. Its rows are
+capped at `SQL_MAX_ROWS` (1000), and `limit` in the body lowers the
+cap for one call. A deployment turns the tool off with `SQL_TOOL=off`,
+after which the route answers 404 and `describe` says so.
+
+`describe` carries a `sql` object with the tool's state, the dialect,
+the limits, the two tables with their columns, primary keys and
+indexes, and notes on writing against them: `labels` and `payload`
+are JSON columns, read with `json_extract(payload, '$.field')` on
+SQLite and `payload ->> 'field'` on PostgreSQL; timestamps are naive
+UTC, and on SQLite come back as the stored text; the extracted columns
+on `events` answer most questions without JSON functions; session status is not stored, so derive it from the
+timestamps or ask the curated routes, which apply the thresholds.
+
+The data holds no secrets, since events never carry file contents,
+command output, form answers or variable values; the tool is on by
+default for that reason.
 
 ## Labels
 

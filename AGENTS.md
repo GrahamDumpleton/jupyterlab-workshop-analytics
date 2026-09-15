@@ -25,9 +25,15 @@ Layout:
   `projection.py` the sessions projection and its status rules;
   `live.py` the broadcaster and the SSE stream; `queries.py` every
   question the query API answers, as functions returning dataclasses;
-  `tokens.py` the signed tokens; `store/` the SQLAlchemy Core tables,
-  engine and Alembic migrations; `api/` the routers; `dashboard/` the
-  Jinja2 templates and the one static script.
+  `mcp.py` the same questions as MCP tools at `/mcp`; `sql.py` the
+  read-only SQL tool; `tokens.py` the signed tokens; `store/` the
+  SQLAlchemy Core tables, engine and Alembic migrations; `api/` the
+  routers; `dashboard/` the Jinja2 templates and the one static
+  script.
+
+- `skills/jupyterlab-workshop-analytics/` is the reporting skill an
+  assistant reads before asking the service questions. It stays short
+  because the definitions come from `describe`.
 
 - `tests/` is the pytest suite, driven by the wrapture pytest plugin.
   `tests/fixtures/` holds `events.jsonl` files from real workshop runs;

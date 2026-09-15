@@ -37,6 +37,9 @@ Every setting is an environment variable, read once at startup by
 | `RATE_LIMIT_PER_MINUTE` | `120` | Batches one token may post per minute. |
 | `SESSION_HOURS` | `12` | How long a dashboard cookie lasts. |
 | `COOKIE_SECURE` | unset | Force the cookie's Secure flag on or off; unset follows the request's scheme. |
+| `SQL_TOOL` | on | `off` disables the read-only SQL tool on `/api/sql` and `/mcp`. |
+| `SQL_TIMEOUT` | `10` | Seconds a SQL statement may run before it is stopped. |
+| `SQL_MAX_ROWS` | `1000` | The most rows a SQL statement returns. |
 | `WRAPTURE_CONFIG` | unset | A wrapture configuration for `serve` to apply. |
 
 ## The dashboard's static files
@@ -129,9 +132,17 @@ and the status, since it is derived at read time. Chaining sessions
 into journeys, the funnel, the percentiles and the data quality note
 are computed in Python over the selected rows, one code path for
 SQLite and PostgreSQL. A new question is a function in `queries.py`,
-a route in `api/query.py`, a test in `tests/test_queries.py`, its
-observe entry in `wrapture.toml` if it is a top-level question, and
-its row on the [API](api.md) page.
+a route in `api/query.py`, a tool in `mcp.py`, a test in
+`tests/test_queries.py`, its observe entry in `wrapture.toml` if it
+is a top-level question, and its row on the [API](api.md) and
+[MCP](mcp.md) pages.
+
+`mcp.py` builds the MCP server from the official SDK, one tool per
+question, and mounts its transport at `/mcp` behind the same bearer
+check as the API; the application's lifespan runs the transport's
+session manager. `sql.py` is the read-only SQL tool on a second
+engine, with the statement guard, the deadline and the row cap; the
+route and the tool both call it.
 
 ## The vendored schema
 

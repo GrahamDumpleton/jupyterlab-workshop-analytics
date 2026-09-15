@@ -44,10 +44,11 @@ Three layers, with one rule each:
   would add a span per event and say nothing a batch's span does
   not), the broadcaster, the store's `migrate`, so the statements
   that bring the schema up to date at startup nest under one call
-  instead of each standing as its own root, and the query layer's
+  instead of each standing as its own root, the query layer's
   questions, one span per question with the filters as its
-  arguments and the statements it ran beneath it. Dropping or adding
-  a call site needs no code change. The top-level `capture =
+  arguments and the statements it ran beneath it, and the SQL tool's
+  runs with the analyst's statement as an argument. Dropping or
+  adding a call site needs no code change. The top-level `capture =
   "summary"` keeps recorded values bounded, the batch itself is
   redacted where it is an argument, and the functions that return
   bulk data, the parser returning the batch, `live_rows` returning
@@ -92,6 +93,9 @@ on a laptop: `just otel` starts it, and its UI is on port 8000. A real
 `OTEL_EXPORTER_OTLP_ENDPOINT` in the environment overrides the
 default, which is how a deployment points at the cluster's collector
 without editing the file.
+
+A call to an MCP tool is a `POST /mcp` request like any other, with
+the tool's question and its statements nested beneath it.
 
 Each request arrives in the viewer as one trace: a SERVER span named
 `POST /events` by its route, the pipeline and its phases nested

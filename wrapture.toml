@@ -77,6 +77,15 @@ capture_result = "shape"
 target = "workshop_analytics.live:Broadcaster"
 match = "*"
 
+# The SQL tool: each statement as a span carrying the statement and
+# its parameters, the rows as a shape. The statement is the analyst's
+# own text and the data holds no secrets, so neither is redacted.
+
+[[observe]]
+target = "workshop_analytics.sql:SqlTool"
+name = ["run"]
+capture_result = "shape"
+
 # The questions the query API answers, one span per question with the
 # filters as its arguments. Their results are whole reports, so they
 # are captured as shapes; the helpers beneath them (loading, chaining,

@@ -43,6 +43,9 @@ class Settings:
     rate_limit_per_minute: int = 120
     session_hours: float = 12.0
     cookie_secure: bool | None = None
+    sql_tool: bool = True
+    sql_timeout: float = 10.0
+    sql_max_rows: int = 1000
 
     @classmethod
     def from_environment(cls, environ: Mapping[str, str] | None = None) -> Settings:
@@ -95,4 +98,7 @@ class Settings:
             rate_limit_per_minute=count("RATE_LIMIT_PER_MINUTE", 120),
             session_hours=number("SESSION_HOURS", 12.0),
             cookie_secure=flag("COOKIE_SECURE"),
+            sql_tool=flag("SQL_TOOL") is not False,
+            sql_timeout=number("SQL_TIMEOUT", 10.0),
+            sql_max_rows=count("SQL_MAX_ROWS", 1000),
         )
