@@ -256,6 +256,14 @@ def test_the_live_view_shows_live_and_recently_ended_sessions(
     assert shown[0]["page"]["file"].endswith(".md")
     assert live_rows(engine, late, settings) == []
 
+    # Elapsed time runs from the start to the end once there is one,
+    # so it reads the same however long the row lingers.
+    started_at = parse_timestamp(events[0]["ts"])
+    spent = int((finished_at - started_at).total_seconds())
+
+    assert shown[0]["elapsed_seconds"] == spent
+    assert live_rows(engine, finished_at, settings)[0]["elapsed_seconds"] == spent
+
 
 def test_rebuild_reproduces_the_projection(ingest: Ingest, engine: Engine) -> None:
     for name in ("why-a-workshop", "guided-not-documented", "hello-jupyterlab"):

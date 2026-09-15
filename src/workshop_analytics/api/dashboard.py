@@ -25,8 +25,12 @@ def render(
     """Render a dashboard template."""
 
     templates = request.app.state.templates
+    assets = request.app.state.assets_version
     response: HTMLResponse = templates.TemplateResponse(
-        request, template, {"request": request, **context}, status_code=status_code
+        request,
+        template,
+        {"request": request, "assets": assets, **context},
+        status_code=status_code,
     )
 
     return response

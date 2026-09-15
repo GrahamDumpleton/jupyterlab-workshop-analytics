@@ -5,6 +5,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
+from workshop_analytics.app import DASHBOARD_DIR
 from workshop_analytics.config import SESSION_COOKIE
 
 
@@ -112,3 +113,20 @@ async def test_static_assets_and_health_need_no_login(
 
     assert script.status_code == 200
     assert health.json() == {"status": "ok"}
+
+
+@pytest.mark.anyio
+async def test_the_pages_link_their_assets_by_version(
+    client: httpx.AsyncClient, dashboard_token: str
+) -> None:
+    from workshop_analytics.app import assets_version
+
+    version = assets_version(DASHBOARD_DIR / "static")
+    login = await client.get("/login")
+
+    assert f"/static/live.css?v={version}" in login.text
+
+    entered = await client.get(f"/?token={dashboard_token}", follow_redirects=True)
+
+    assert f"/static/live.js?v={version}" in entered.text
+    assert (await client.get(f"/static/live.js?v={version}")).status_code == 200

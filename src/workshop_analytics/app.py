@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -20,6 +21,24 @@ from .store import make_engine, migrate
 from .tokens import DenyList, decode_key
 
 DASHBOARD_DIR = Path(__file__).with_name("dashboard")
+
+
+def assets_version(directory: Path) -> str:
+    """A short digest of the static files, for cache-busting their URLs.
+
+    The pages link their script and stylesheet with this as a query
+    string, so a browser that cached one version fetches the next
+    after a restart rather than running old script against new markup.
+    """
+
+    digest = hashlib.sha256()
+
+    for path in sorted(directory.iterdir()):
+        if path.is_file():
+            digest.update(path.name.encode())
+            digest.update(path.read_bytes())
+
+    return digest.hexdigest()[:12]
 
 
 def create_app(
@@ -66,6 +85,7 @@ def create_app(
         broadcaster=app.state.broadcaster,
     )
     app.state.templates = Jinja2Templates(directory=str(DASHBOARD_DIR / "templates"))
+    app.state.assets_version = assets_version(DASHBOARD_DIR / "static")
 
     app.include_router(health.router)
     app.include_router(sink.router)

@@ -410,6 +410,10 @@ def live_row(row: Any, now: datetime, settings: Settings) -> dict[str, Any]:
     page = page_details(row)
     ended = row.finished_at or row.abandoned_at
 
+    # Time in the workshop: to now while it runs, to its end once it
+    # has one. A resumed session counts from its own start, the resume.
+    elapsed = max(0, int(((ended or now) - row.started_at).total_seconds()))
+
     return {
         "session_id": row.session_id,
         "short_id": row.session_id[-8:],
@@ -427,6 +431,7 @@ def live_row(row: Any, now: datetime, settings: Settings) -> dict[str, Any]:
         "started_at": _iso(row.started_at),
         "last_seen": _iso(row.last_seen),
         "quiet_seconds": int((now - row.last_seen).total_seconds()),
+        "elapsed_seconds": elapsed,
         "ended_at": _iso(ended) if ended else "",
         "page": page,
         "page_position": position,

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Workshops in progress</title>
-  <link rel="stylesheet" href="/static/live.css">
+  <link rel="stylesheet" href="/static/live.css?v={{ assets }}">
 </head>
 <body>
   <header class="bar">
@@ -31,6 +31,7 @@
     <tr class="session">
       <td class="who"></td>
       <td class="started"></td>
+      <td class="elapsed"></td>
       <td class="page"></td>
       <td class="done"></td>
       <td class="quiet"></td>
@@ -45,6 +46,6 @@
       linger: {{ linger | tojson }}
     };
   </script>
-  <script src="/static/live.js"></script>
+  <script src="/static/live.js?v={{ assets }}"></script>
 </body>
 </html>

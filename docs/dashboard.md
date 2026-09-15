@@ -58,6 +58,12 @@ here.
   workshop's group, so a learner doing the second workshop of three
   reads as one line of progress.
 
+- **Elapsed** is how long the session has been running, ticking
+  locally between updates, and fixed at its length once it has
+  finished or been abandoned. A resumed session counts from the
+  resume, not from the session it carried on from, which the hover
+  text says.
+
 - **Page** is the current page's file name, its title on hover, and
   its position in the page list the session started with. A session
   whose start was never received has no page list and shows the page

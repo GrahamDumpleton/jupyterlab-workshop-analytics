@@ -39,6 +39,16 @@ Every setting is an environment variable, read once at startup by
 | `COOKIE_SECURE` | unset | Force the cookie's Secure flag on or off; unset follows the request's scheme. |
 | `WRAPTURE_CONFIG` | unset | A wrapture configuration for `serve` to apply. |
 
+## The dashboard's static files
+
+The pages link `live.js` and `live.css` with a query string that is a
+digest of the static directory, computed once at startup, so a browser
+that cached one version fetches the next after the service restarts.
+Templates are re-read on change without a restart; the script and
+stylesheet need one, or a hard reload, since the page's header row is
+built by the script and the row template by the markup, and the two
+must match.
+
 ## The store
 
 SQLAlchemy Core, never the ORM. `store/tables.py` declares two
