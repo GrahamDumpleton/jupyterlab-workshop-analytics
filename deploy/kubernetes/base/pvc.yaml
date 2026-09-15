@@ -1,0 +1,12 @@
+# The SQLite database. ReadWriteOnce, so one pod at a time, which the
+# Deployment's Recreate strategy guarantees.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: workshop-analytics-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

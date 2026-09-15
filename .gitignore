@@ -19,3 +19,6 @@ dist/
 
 # Working files that never belong in the repository
 scratch/
+
+# Deployment secrets are never committed
+deploy/kubernetes/overlays/production/key.env

@@ -1,0 +1,50 @@
+# A real cluster: the published image at a pinned version, the key from
+# key.env (never committed; key.env.example shows the shape), the
+# collector endpoint, resource limits, and an Ingress with TLS through
+# cert-manager. Edit the host in ingress.yaml and the endpoint below.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: workshop-analytics
+
+resources:
+  - ../../base
+  - ingress.yaml
+
+images:
+  - name: ghcr.io/grahamdumpleton/jupyterlab-workshop-analytics
+    newTag: 0.1.0
+
+secretGenerator:
+  - name: workshop-analytics-key
+    envs:
+      - key.env
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+patches:
+  - target:
+      kind: Deployment
+      name: workshop-analytics
+    patch: |
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://otel-collector.observability.svc:4318
+      - op: add
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            memory: 512Mi
+  - target:
+      kind: PersistentVolumeClaim
+      name: workshop-analytics-data
+    patch: |
+      - op: replace
+        path: /spec/resources/requests/storage
+        value: 10Gi

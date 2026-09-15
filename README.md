@@ -10,7 +10,8 @@ through the pages on one page; and an analyst asks the query API
 where learners stop, how long pages take and which checks they fail.
 
 It is a Python service, FastAPI on uvicorn with SQLite behind it, run
-from a checkout for development and as a container image in
+from a checkout for development and as the container image
+`ghcr.io/grahamdumpleton/jupyterlab-workshop-analytics` in
 deployment. It is not published to PyPI.
 
 ## Running it locally
@@ -40,6 +41,10 @@ tests/fixtures/hello-jupyterlab.jsonl` seeds the store with a recorded
 run when there is no workshop to hand.
 
 ## Documentation
+
+- [Deploying](docs/deploying.md): the container image, the
+  Kubernetes manifests, the signing key, and what each kind of
+  workshop host needs in its settings to report here.
 
 - [Tokens](docs/tokens.md): the signing key, issuing and revoking
   tokens, scopes and token-bound labels.

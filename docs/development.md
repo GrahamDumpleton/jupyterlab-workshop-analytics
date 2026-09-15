@@ -16,6 +16,8 @@ wraps the common tasks; `just --list` shows them.
 | `just migrate`, `just rebuild`, `just import <file>` | The store commands. |
 | `just key-generate`, `just token-issue ...`, `just token-inspect <token>` | The credential commands. |
 | `just otel` | Starts otel-desktop-viewer to receive the traces. |
+| `just image`, `just image-run` | Builds the container image locally and runs it on port 8080. |
+| `just manifests <overlay>` | Renders a Kubernetes overlay with kustomize. |
 
 ## Settings
 
@@ -143,6 +145,16 @@ check as the API; the application's lifespan runs the transport's
 session manager. `sql.py` is the read-only SQL tool on a second
 engine, with the statement guard, the deadline and the row cap; the
 route and the tool both call it.
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every push to `main` and on pull
+requests: the lint, type check and tests, then a build of the
+container image, a start of the container with a generated key until
+`/healthz` answers, and a render of both Kubernetes overlays.
+`.github/workflows/image.yml` runs on a bare version tag such as
+`0.2.0`, checks the tag against the version in `pyproject.toml`, and
+publishes the image; see [deploying](deploying.md#the-image).
 
 ## The vendored schema
 

@@ -7,6 +7,30 @@ in its environment. Every command reads its settings from the
 environment; see [development](development.md#settings) for the full
 list.
 
+## In a deployment
+
+The container's command is `serve`, and the other commands run in the
+same container against the same store and key:
+
+```console
+$ kubectl -n workshop-analytics exec deploy/workshop-analytics -- \
+    workshop-analytics token issue --name hub --expires 2027-01-31 --label deployment=hub
+$ kubectl -n workshop-analytics exec deploy/workshop-analytics -- \
+    workshop-analytics rebuild
+$ kubectl -n workshop-analytics cp events.jsonl workshop-analytics-<pod>:/tmp/events.jsonl
+$ kubectl -n workshop-analytics exec deploy/workshop-analytics -- \
+    workshop-analytics import /tmp/events.jsonl --label course=intro
+```
+
+With Docker it is `docker exec <container> workshop-analytics ...`.
+`key generate` is the one command to run on a laptop instead, since
+its output goes into the Secret the pod is started with, and `token
+inspect` runs anywhere, since it needs no key. `serve` migrates the
+store at start, so `migrate` is only for a deployment that wants
+migrations as a separate step, a Job before the rollout say. The
+image, the manifests and the per-host settings are on
+[deploying](deploying.md).
+
 ## serve
 
 ```console

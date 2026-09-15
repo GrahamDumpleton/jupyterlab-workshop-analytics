@@ -1,0 +1,1 @@
+# Revoked token ids (jti), one per line. Re-read when the file changes.

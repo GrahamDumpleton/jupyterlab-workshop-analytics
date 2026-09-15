@@ -1,0 +1,23 @@
+# The service on Kubernetes: one replica on one SQLite volume, reached
+# through a Service, with the key in a Secret an overlay supplies and
+# the deny list in a ConfigMap generated from denied.txt beside this
+# file. An overlay adds the Ingress, the collector endpoint, the image
+# tag and the resources; see docs/deploying.md.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: workshop-analytics
+
+resources:
+  - namespace.yaml
+  - pvc.yaml
+  - deployment.yaml
+  - service.yaml
+
+configMapGenerator:
+  - name: workshop-analytics-denied
+    files:
+      - denied.txt
+
+generatorOptions:
+  disableNameSuffixHash: true

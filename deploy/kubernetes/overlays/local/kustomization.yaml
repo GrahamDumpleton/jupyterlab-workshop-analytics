@@ -1,0 +1,39 @@
+# A kind or Docker Desktop cluster: the image built locally, the key
+# from key.env beside this file, otel-desktop-viewer running beside the
+# service so the same viewer works in the cluster, and no Ingress; use
+# port-forward. See docs/deploying.md for the steps.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: workshop-analytics
+
+resources:
+  - ../../base
+  - otel-desktop-viewer.yaml
+
+images:
+  - name: ghcr.io/grahamdumpleton/jupyterlab-workshop-analytics
+    newName: jupyterlab-workshop-analytics
+    newTag: local
+
+secretGenerator:
+  - name: workshop-analytics-key
+    envs:
+      - key.env
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+patches:
+  - target:
+      kind: Deployment
+      name: workshop-analytics
+    patch: |
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://otel-desktop-viewer:4318
+      - op: replace
+        path: /spec/template/spec/containers/0/env/4/value
+        value: "false"

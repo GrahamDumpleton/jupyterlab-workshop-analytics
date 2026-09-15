@@ -1,0 +1,42 @@
+# otel-desktop-viewer in the cluster: OTLP on 4318 for the service, the
+# UI on 8000 through a port-forward.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-desktop-viewer
+  labels:
+    app.kubernetes.io/name: otel-desktop-viewer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: otel-desktop-viewer
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: otel-desktop-viewer
+    spec:
+      containers:
+        - name: viewer
+          image: ghcr.io/ctrlspice/otel-desktop-viewer:latest
+          args: ["--host", "0.0.0.0", "--open-browser=false"]
+          ports:
+            - name: ui
+              containerPort: 8000
+            - name: otlp-http
+              containerPort: 4318
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-desktop-viewer
+spec:
+  selector:
+    app.kubernetes.io/name: otel-desktop-viewer
+  ports:
+    - name: ui
+      port: 8000
+      targetPort: ui
+    - name: otlp-http
+      port: 4318
+      targetPort: otlp-http

@@ -66,3 +66,15 @@ otel:
 clean:
     rm -rf dist .pytest_cache .mypy_cache .ruff_cache
     find . -type d -name __pycache__ -not -path "./.venv/*" -exec rm -rf {} +
+
+# Build the container image from deploy/Dockerfile as jupyterlab-workshop-analytics:local.
+image:
+    docker build -f deploy/Dockerfile -t jupyterlab-workshop-analytics:local .
+
+# Run the local image on port 8080 with a fresh key and a named volume for the store.
+image-run:
+    docker run --rm -p 8080:8080 -v workshop-analytics-data:/data -e TOKEN_SIGNING_KEY="$(uv run workshop-analytics key generate)" jupyterlab-workshop-analytics:local
+
+# Render a Kubernetes overlay, e.g. `just manifests local`.
+manifests overlay="local":
+    kubectl kustomize deploy/kubernetes/overlays/{{overlay}}

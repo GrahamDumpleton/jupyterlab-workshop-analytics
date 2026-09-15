@@ -43,7 +43,10 @@ Layout:
 - `docs/` is the documentation, Markdown read on GitHub, with the
   README as the entry point. `wrapture.toml` is the local development
   observability configuration; `deploy/` holds what a deployment
-  needs.
+  needs: the Dockerfile, the deployed `wrapture.toml` the image
+  carries, and the Kubernetes base and overlays under
+  `deploy/kubernetes/`. `.github/workflows/` runs the checks on every
+  push and publishes the image on a version tag.
 
 The `scratch/` directory is not part of the git repository. It holds
 temporary working files; never reference it from anything committed.

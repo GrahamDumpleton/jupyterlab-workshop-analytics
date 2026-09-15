@@ -1,0 +1,27 @@
+# The public route, for a service receiving from Binder, from a
+# JupyterLite site or from another cluster. A service fed only over the
+# cluster network by a co-located JupyterHub can leave this out and
+# reach the dashboard another way. The host and the issuer are the
+# deployment's own.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: workshop-analytics
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+spec:
+  tls:
+    - hosts:
+        - analytics.example.org
+      secretName: workshop-analytics-tls
+  rules:
+    - host: analytics.example.org
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: workshop-analytics
+                port:
+                  name: http

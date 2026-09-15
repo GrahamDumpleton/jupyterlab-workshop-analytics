@@ -1,0 +1,64 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A newer push to the same branch supersedes a run still in progress.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.0.1
+        with:
+          enable-cache: true
+      - uses: extractions/setup-just@v4
+      - name: Install
+        run: just install
+      - name: Lint
+        run: just lint
+      - name: Type check
+        run: just typecheck
+      - name: Tests
+        run: just test
+
+  image:
+    # The Dockerfile and the manifests are checked on every push; the
+    # image is only published by the image workflow, on a version tag.
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v3
+      - name: Build the image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/Dockerfile
+          push: false
+          load: true
+          tags: jupyterlab-workshop-analytics:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Start the container and check its health
+        run: |
+          key=$(docker run --rm jupyterlab-workshop-analytics:ci workshop-analytics key generate)
+          docker run -d --name analytics -p 8080:8080 -e TOKEN_SIGNING_KEY="$key" jupyterlab-workshop-analytics:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8080/healthz; then echo; exit 0; fi
+            sleep 1
+          done
+          docker logs analytics
+          exit 1
+      - name: Render the manifests
+        run: |
+          cp deploy/kubernetes/overlays/production/key.env.example deploy/kubernetes/overlays/production/key.env
+          kubectl kustomize deploy/kubernetes/overlays/local > /dev/null
+          kubectl kustomize deploy/kubernetes/overlays/production > /dev/null
