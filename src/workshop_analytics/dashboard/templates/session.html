@@ -27,7 +27,8 @@
         {% if s.collection %}<span class="collection">{{ s.collection }}</span>{% endif %}
       </h2>
       <dl>
-        <dt>Learner</dt><dd>{{ s.user or s.session_id[-8:] }} <span class="muted">{{ s.host }} · {{ s.frontend }} {{ s.frontend_version }} · {{ s.platform }} · instance {{ s.instance_id[:8] }}</span></dd>
+        <dt>Session</dt><dd>{{ s.session_id }} <span class="muted">{{ s.host }} · {{ s.frontend }} {{ s.frontend_version }} · {{ s.platform }}</span></dd>
+        <dt>Learner</dt><dd>{% if s.user %}{{ s.user }} <span class="muted">instance {{ s.instance_id[:8] }}</span>{% else %}instance {{ s.instance_id[:8] }} <span class="muted">no identity from this deployment</span>{% endif %}</dd>
         <dt>Started</dt><dd><time datetime="{{ s.started_at }}">{{ s.started_at }}</time></dd>
         {% if s.ended_at %}<dt>Ended</dt><dd><time datetime="{{ s.ended_at }}">{{ s.ended_at }}</time></dd>{% else %}<dt>Last event</dt><dd><time datetime="{{ s.last_seen }}">{{ s.last_seen }}</time></dd>{% endif %}
         <dt>Duration</dt><dd>{{ s.duration_seconds | duration }}</dd>

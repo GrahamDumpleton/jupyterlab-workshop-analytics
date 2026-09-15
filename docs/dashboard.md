@@ -1,10 +1,10 @@
 # The dashboard
 
 `GET /` is one page: the sessions being done right now, grouped by
-workshop, each row showing who is doing it, when they started, the
-page they are on and its position in the workshop, how many pages they
-have finished, how long since their last event, their status, and
-their last few actions and check results. Rows update as batches
+workshop, each row one session showing who is doing it and where,
+when it started, the page it is on and its position in the workshop,
+how many pages are done, how long since its last event, its status,
+and its last few actions and check results. Rows update as batches
 arrive; nothing needs reloading.
 
 ## Signing in
@@ -50,13 +50,16 @@ here.
 
 ## What the columns mean
 
-- **Learner** is the `user` when the deployment supplies one (a
-  JupyterHub with `identity: hub`) and the last eight characters of
-  the session id otherwise, linked to the session's own page. Beneath
-  it, the host, the frontend and a prefix of the instance id: the
-  running JupyterLab the session belongs to. Sessions of one instance
-  sit together within a workshop's group, so a learner doing the
-  second workshop of three reads as one line of progress.
+- **Session** is the last eight characters of the session id, linked
+  to the session's own page. Beneath it, who and where: the `user`
+  when the deployment supplies one (a JupyterHub with `identity:
+  hub`) and otherwise a prefix of the instance id, the running
+  JupyterLab the session belongs to, then the host and the frontend.
+  A learner has one session at a time, so the row is the session; the
+  instance prefix is how to tell that a session which just finished
+  and the one that followed it are the same person, and sessions of
+  one instance sit together within a workshop's group for that
+  reason.
 
 - **Elapsed** is how long the session has been running, ticking
   locally between updates, and fixed at its length once it has
@@ -105,7 +108,7 @@ marker appears the moment the event after the gap arrives.
 
 ## A session's page
 
-Clicking a learner opens `/sessions/<id>`, the session on its own:
+Clicking a session id opens `/sessions/<id>`, the session on its own:
 a summary card with its status, when it started and ended or was
 last heard from, its duration, its progress through the pages, how
 many of its events arrived, its workshop, labels and token, and the
