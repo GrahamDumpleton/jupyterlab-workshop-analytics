@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+dist/
+*.egg-info/
+
+# Tools
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local data
+*.db
+*.db-wal
+*.db-shm
+*.jsonl
+!tests/fixtures/*.jsonl
+
+# Working files that never belong in the repository
+scratch/

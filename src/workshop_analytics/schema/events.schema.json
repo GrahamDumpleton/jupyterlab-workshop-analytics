@@ -1,0 +1,352 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://grahamdumpleton.github.io/jupyterlab-workshop/schemas/v1alpha1/events.schema.json",
+  "title": "Workshop progress events",
+  "description": "The progress events a workshop reports: one JSON object per line in _workshop/events.jsonl and in the application/x-ndjson body posted to a sink. This schema describes one event. Every event carries the base fields below; each kind adds the fields listed under its entry in definitions/kinds. Fields whose values are open sets (frontend, host, platform, kind, status, trigger) are plain strings with the known values named in their descriptions, so a consumer validating against this schema keeps accepting events from a frontend or hosting service added later. A consumer that understands a kind validates the event against the base fields and then against that kind's definition; an unknown kind is stored as it arrived.",
+  "type": "object",
+  "required": [
+    "kind",
+    "ts",
+    "session_id",
+    "instance_id",
+    "workshop",
+    "name",
+    "version",
+    "source",
+    "collection",
+    "seq",
+    "labels",
+    "frontend",
+    "frontend_version",
+    "host",
+    "platform",
+    "trust"
+  ],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "description": "What happened: workshop-start, workshop-resume, workshop-finish, workshop-abandon, page-enter, page-leave, heartbeat, gate-skipped, action-executed, verify-result, quiz-answered, form-submitted, hint-opened, checkpoint-restored, preflight-result or environment-created. Open: a later release may add kinds."
+    },
+    "ts": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the event happened, as an ISO 8601 timestamp from the learner's clock."
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Random id of one open of the workshop. A resume is a new session that names the previous one in resumed_from; a restart is a new session that names it in restarted_from."
+    },
+    "instance_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Id of the running frontend the session ran under: one run of the Jupyter server for JupyterLab, one page load for JupyterLite. Every workshop opened under that run carries the same value, which is how sessions of one learner working through a collection are grouped."
+    },
+    "workshop": {
+      "type": "string",
+      "description": "Directory of the workshop relative to the JupyterLab root."
+    },
+    "name": {
+      "type": "string",
+      "description": "The manifest name of the workshop."
+    },
+    "version": {
+      "type": "string",
+      "description": "The manifest version of the workshop, always a string; empty when the manifest has none."
+    },
+    "source": {
+      "type": "string",
+      "description": "Where the workshop came from, as the trust source key: git:<url>@<ref>/<subdir>, archive:<url> or local:<path>. Not a cross-deployment identity, since the same workshop is a local directory on one deployment and a git checkout on another; name and collection are."
+    },
+    "collection": {
+      "type": "string",
+      "description": "The subscribed collection that lists the workshop, as the index URL or repository it was subscribed from; empty when no collection does. Together with name it identifies a workshop across deployments."
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Sequence number within the session, starting at 1 and incremented on every event, so a consumer can tell received from expected and find the gaps where a batch was lost."
+    },
+    "labels": {
+      "type": "object",
+      "description": "Key and value pairs from the analytics block that supplied the sink, stamped on every event for slicing reports; empty when the block declares none. At most 16, with keys of lower case letters, digits, underscore, dot and hyphen up to 63 characters and values up to 128.",
+      "maxProperties": 16,
+      "propertyNames": { "pattern": "^[a-z0-9_.-]+$", "maxLength": 63 },
+      "additionalProperties": { "type": "string", "maxLength": 128 }
+    },
+    "frontend": {
+      "type": "string",
+      "description": "The frontend that produced the event: jupyterlab or jupyterlite today. Open: a workshop extension for another editor would report its own name."
+    },
+    "frontend_version": {
+      "type": "string",
+      "description": "Version of the extension that produced the event, which identifies the code that built it under JupyterLite as well as under a server."
+    },
+    "host": {
+      "type": "string",
+      "description": "The service hosting the session: local, binder, jupyterhub, codespaces, or static for a JupyterLite site. Open: a later release may detect more."
+    },
+    "platform": {
+      "type": "string",
+      "description": "The operating system the workshop runs on: linux, macos, windows, or emscripten under JupyterLite, which runs on Pyodide whatever the browser's operating system. Open."
+    },
+    "trust": {
+      "type": "string",
+      "description": "The trust level the workshop opened at: trusted, restricted or ask; empty before a decision."
+    },
+    "user": {
+      "type": "string",
+      "description": "The learner's identity when the deployment's analytics identity policy adds one, such as the JupyterHub user name under identity: hub; absent otherwise, so every consumer treats it as optional."
+    }
+  },
+  "definitions": {
+    "page": {
+      "type": "object",
+      "description": "One page of the workshop as it was listed when the session started.",
+      "required": ["id", "path", "title"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The page id every other event's page field refers to: the file name without its extension unless the page's front matter sets id."
+        },
+        "path": {
+          "type": "string",
+          "description": "The page file relative to the workshop directory."
+        },
+        "title": {
+          "type": "string",
+          "description": "The page title as shown in the panel."
+        }
+      }
+    },
+    "tool": {
+      "type": "object",
+      "description": "One tool the preflight looked for.",
+      "required": ["name", "found", "satisfied", "version"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "found": { "type": "boolean" },
+        "satisfied": {
+          "type": "boolean",
+          "description": "Whether the tool was found at a version the manifest accepts."
+        },
+        "version": {
+          "type": "string",
+          "description": "The version found, or empty when not run or not found."
+        }
+      }
+    },
+    "kinds": {
+      "workshop-start": {
+        "type": "object",
+        "description": "A workshop was opened with no recorded progress, or restarted.",
+        "required": ["page", "pages"],
+        "properties": {
+          "page": {
+            "type": "string",
+            "description": "Id of the page shown first."
+          },
+          "pages": {
+            "type": "array",
+            "items": { "$ref": "#/definitions/page" },
+            "description": "The visible pages in order, as the session ran with them, so a consumer can compute a funnel and show page 3 of 8 without reading the workshop."
+          },
+          "restarted_from": {
+            "type": "string",
+            "description": "The session id of the open that the learner chose to restart rather than continue, when this start follows the restart dialog."
+          }
+        }
+      },
+      "workshop-resume": {
+        "type": "object",
+        "description": "A workshop with recorded progress was opened again.",
+        "required": ["page", "pages"],
+        "properties": {
+          "page": {
+            "type": "string",
+            "description": "Id of the page resumed at."
+          },
+          "pages": {
+            "type": "array",
+            "items": { "$ref": "#/definitions/page" },
+            "description": "The visible pages in order, as for workshop-start."
+          },
+          "resumed_from": {
+            "type": "string",
+            "description": "The session id of the previous open, read from the workshop state; the only link between one open and the next on a host without identity."
+          }
+        }
+      },
+      "workshop-finish": {
+        "type": "object",
+        "description": "Finish was pressed on the last page.",
+        "required": ["pages"],
+        "properties": {
+          "pages": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "How many pages were visible."
+          }
+        }
+      },
+      "workshop-abandon": {
+        "type": "object",
+        "description": "The workshop was closed or replaced before finishing. A closed tab or a stopped server sends nothing; silence after the last heartbeat is what a consumer sees then.",
+        "required": ["page"],
+        "properties": {
+          "page": { "type": "string", "description": "Id of the page left." }
+        }
+      },
+      "page-enter": {
+        "type": "object",
+        "description": "A page was shown.",
+        "required": ["page"],
+        "properties": {
+          "page": { "type": "string" }
+        }
+      },
+      "page-leave": {
+        "type": "object",
+        "description": "A page was left.",
+        "required": ["page", "active_ms"],
+        "properties": {
+          "page": { "type": "string" },
+          "active_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Milliseconds between entering and leaving the page."
+          }
+        }
+      },
+      "heartbeat": {
+        "type": "object",
+        "description": "The workshop is still open: sent every 60 seconds while the page is visible, every 5 minutes while it is hidden, and once immediately whenever visibility changes.",
+        "required": ["page", "hidden"],
+        "properties": {
+          "page": {
+            "type": "string",
+            "description": "Id of the current page."
+          },
+          "hidden": {
+            "type": "boolean",
+            "description": "Whether the browser tab was hidden when the heartbeat was sent."
+          }
+        }
+      },
+      "gate-skipped": {
+        "type": "object",
+        "description": "The learner moved on past unmet requirements under soft gating.",
+        "required": ["page", "requirements"],
+        "properties": {
+          "page": { "type": "string" },
+          "requirements": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "The unmet requirements as kind:id strings."
+          }
+        }
+      },
+      "action-executed": {
+        "type": "object",
+        "description": "An action ran, was skipped or failed.",
+        "required": ["id", "type", "status", "trigger", "downgraded"],
+        "properties": {
+          "id": { "type": "string", "description": "The directive id." },
+          "type": {
+            "type": "string",
+            "description": "The directive name, such as execute."
+          },
+          "status": {
+            "type": "string",
+            "description": "ok, error or skipped."
+          },
+          "trigger": {
+            "type": "string",
+            "description": "What ran it: click, role, auto, cascade or trigger."
+          },
+          "downgraded": {
+            "type": "boolean",
+            "description": "Whether the trust level replaced the action with a safer one."
+          }
+        }
+      },
+      "verify-result": {
+        "type": "object",
+        "description": "A check ran.",
+        "required": ["id", "status", "attempt", "trigger"],
+        "properties": {
+          "id": { "type": "string" },
+          "status": {
+            "type": "string",
+            "description": "ok, error or skipped."
+          },
+          "attempt": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "How many times the check has run in this workshop, this one included."
+          },
+          "trigger": { "type": "string" }
+        }
+      },
+      "quiz-answered": {
+        "type": "object",
+        "description": "A quiz was answered.",
+        "required": ["id", "correct", "attempt"],
+        "properties": {
+          "id": { "type": "string" },
+          "correct": { "type": "boolean" },
+          "attempt": { "type": "integer", "minimum": 1 }
+        }
+      },
+      "form-submitted": {
+        "type": "object",
+        "description": "A form was submitted; the field names only, never the values.",
+        "required": ["id", "fields"],
+        "properties": {
+          "id": { "type": "string" },
+          "fields": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "hint-opened": {
+        "type": "object",
+        "description": "A hint was expanded.",
+        "required": ["id"],
+        "properties": {
+          "id": { "type": "string" }
+        }
+      },
+      "checkpoint-restored": {
+        "type": "object",
+        "description": "A checkpoint was restored.",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" }
+        }
+      },
+      "preflight-result": {
+        "type": "object",
+        "description": "The required tools were checked.",
+        "required": ["tools"],
+        "properties": {
+          "tools": {
+            "type": "array",
+            "items": { "$ref": "#/definitions/tool" }
+          }
+        }
+      },
+      "environment-created": {
+        "type": "object",
+        "description": "The isolated environment was created.",
+        "required": ["kernel"],
+        "properties": {
+          "kernel": {
+            "type": "string",
+            "description": "The registered kernel name."
+          }
+        }
+      }
+    }
+  }
+}

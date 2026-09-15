@@ -1,0 +1,162 @@
+:root {
+  color-scheme: light dark;
+  --ink: #1f2328;
+  --muted: #59636e;
+  --line: #d0d7de;
+  --paper: #ffffff;
+  --ground: #f6f8fa;
+  --active: #1a7f37;
+  --away: #9a6700;
+  --silent: #6e7781;
+  --lost: #cf222e;
+  --finished: #0969da;
+  --abandoned: #8250df;
+  --gap: #cf222e;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #e6edf3;
+    --muted: #9198a1;
+    --line: #3d444d;
+    --paper: #0d1117;
+    --ground: #161b22;
+    --active: #3fb950;
+    --away: #d29922;
+    --silent: #8b949e;
+    --lost: #f85149;
+    --finished: #58a6ff;
+    --abandoned: #a371f7;
+    --gap: #f85149;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--ink);
+  background: var(--ground);
+}
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  align-items: center;
+  padding: 12px 20px;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+}
+
+.bar h1 { font-size: 18px; margin: 0; }
+
+.selector { display: flex; gap: 8px; align-items: center; flex: 1 1 320px; }
+
+.selector input {
+  flex: 1 1 200px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--ground);
+  color: var(--ink);
+  font: inherit;
+}
+
+.viewer { display: flex; gap: 12px; align-items: center; color: var(--muted); }
+
+.connection { font-size: 12px; padding: 2px 8px; border-radius: 10px; border: 1px solid var(--line); }
+.connection.live { color: var(--active); border-color: var(--active); }
+.connection.down { color: var(--lost); border-color: var(--lost); }
+
+button {
+  font: inherit;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+button.link { border: none; background: none; color: var(--finished); padding: 0; }
+
+main { padding: 16px 20px 40px; }
+
+.empty { color: var(--muted); }
+
+.group { margin-bottom: 24px; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; }
+
+.group h2 {
+  font-size: 15px;
+  margin: 0;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+}
+
+.group h2 .count { color: var(--muted); font-weight: normal; font-size: 13px; }
+.group h2 .collection { color: var(--muted); font-weight: normal; font-size: 12px; }
+
+table { width: 100%; border-collapse: collapse; }
+
+th, td { text-align: left; padding: 8px 14px; border-top: 1px solid var(--line); vertical-align: top; }
+
+th { color: var(--muted); font-weight: 600; font-size: 12px; border-top: none; }
+
+td.who .instance { display: block; color: var(--muted); font-size: 12px; }
+
+td.page .position { color: var(--muted); font-size: 12px; margin-left: 6px; }
+
+.status { font-weight: 600; text-transform: capitalize; }
+.status-active { color: var(--active); }
+.status-away { color: var(--away); }
+.status-silent { color: var(--silent); }
+.status-lost { color: var(--lost); }
+.status-finished { color: var(--finished); }
+.status-abandoned { color: var(--abandoned); }
+
+.gap {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 10px;
+  font-size: 11px;
+  color: var(--paper);
+  background: var(--gap);
+}
+
+.recent span {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.recent span.ok, .recent span.correct { border-color: var(--active); color: var(--active); }
+.recent span.error, .recent span.incorrect { border-color: var(--lost); color: var(--lost); }
+
+tr.ended td { opacity: 0.6; }
+
+.login { display: grid; place-items: center; min-height: 100vh; }
+
+.login-card {
+  width: min(420px, 90vw);
+  padding: 24px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.login-card h1 { font-size: 18px; margin-top: 0; }
+.login-card form { display: grid; gap: 8px; }
+.login-card input { padding: 8px; border: 1px solid var(--line); border-radius: 6px; font: inherit; background: var(--ground); color: var(--ink); }
+.error { color: var(--lost); }

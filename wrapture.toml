@@ -1,0 +1,108 @@
+# Local development observability for the analytics service.
+#
+# `just serve` points WRAPTURE_CONFIG at this file and the serve command
+# applies it before importing the application, so the third-party layers
+# below are patched before the modules that use them load. Nothing in
+# the service's code names wrapture beyond the block, annotate and
+# note_exception markers inside the ingest pipeline, which are inert
+# when no sink is active; what is traced is decided here.
+#
+# Traces, metrics and logs go to otel-desktop-viewer on localhost
+# (`just otel` starts it); a real OTEL_EXPORTER_OTLP_ENDPOINT in the
+# environment overrides the default below. The printer sink is a shallow
+# live view for the terminal while developing: four levels is enough to
+# show a request, its endpoint, the ingest pipeline and its phases.
+
+capture = "summary"
+
+# Third-party layers: the request boundary with its route, every
+# statement as a leaf, the driver beneath it, and the dashboard's
+# template renders. Health checks and static files stay out of the
+# trace, and a token that arrives as a query parameter is masked over
+# and above wrapture's built-in sensitive names.
+
+[[instrument]]
+name = "fastapi"
+ignore_paths = ["/healthz", "/static/*"]
+redact = ["token"]
+
+[[instrument]]
+name = "sqlalchemy"
+
+[[instrument]]
+name = "sqlite3"
+
+[[instrument]]
+name = "jinja2"
+loading = false
+
+# The service's own call sites, by module. Adding or dropping a module
+# here needs no code change. The batch itself is redacted where it is
+# an argument, so event bodies never reach a sink; the counts the
+# pipeline annotates say what happened to them.
+
+[[observe]]
+target = "workshop_analytics.ingest:Ingest"
+match = "*"
+redact = ["items"]
+
+# Parsing returns the batch it was given, so its result is captured as
+# its shape, the type and the count, never the events; the entry is
+# separate because the result capture is per entry.
+
+[[observe]]
+target = "workshop_analytics.ingest"
+name = ["parse_body"]
+redact = ["body"]
+capture_result = "shape"
+
+# The projection and the store at the granularity of a batch: the
+# per-event helpers beneath these (folding one event, hashing one
+# event) would add a span per event and say nothing a batch's span
+# does not.
+
+[[observe]]
+target = "workshop_analytics.projection"
+name = ["apply_events", "project_session", "rebuild"]
+
+# The live view's rows are every session on the page, so the same
+# treatment as the batch: the call is seen, the rows are not.
+
+[[observe]]
+target = "workshop_analytics.projection"
+name = ["live_rows"]
+capture_result = "shape"
+
+[[observe]]
+target = "workshop_analytics.live:Broadcaster"
+match = "*"
+
+[[observe]]
+target = "workshop_analytics.store.writes"
+name = ["insert_events"]
+
+# Bringing the store up to date at startup, so the migration's
+# statements nest under one call rather than each standing as its own
+# root.
+
+[[observe]]
+target = "workshop_analytics.store"
+name = ["migrate"]
+
+# The service's own log lines, correlated with the request they happened in.
+
+[[log]]
+name = "workshop_analytics.*"
+level = "INFO"
+
+[otel]
+service_name = "workshop-analytics"
+signals = ["traces", "metrics", "logs"]
+
+[otel.environment]
+exporter_otlp_endpoint = "http://localhost:4318"
+exporter_otlp_protocol = "http/protobuf"
+
+[[sink]]
+type = "printer"
+depth = 4

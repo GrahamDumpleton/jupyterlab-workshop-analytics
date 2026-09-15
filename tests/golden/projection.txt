@@ -1,0 +1,31 @@
+block workshop_analytics.ingest:Ingest.accept
+block workshop_analytics.ingest:Ingest.accept
+  call workshop_analytics.projection:project_session
+    call workshop_analytics.projection:fold
+    call workshop_analytics.projection:fold
+    call workshop_analytics.projection:fold
+    call workshop_analytics.projection:fold
+    call workshop_analytics.projection:fold
+    call workshop_analytics.projection:fold
+    call workshop_analytics.projection:fold
+    call workshop_analytics.projection:fold
+    call workshop_analytics.projection:fold
+    call workshop_analytics.projection:fold
+    call workshop_analytics.projection:fold
+    call workshop_analytics.projection:fold
+    call workshop_analytics.projection:fold
+    call workshop_analytics.projection:fold
+    call workshop_analytics.projection:fold
+    call workshop_analytics.projection:fold
+    call workshop_analytics.projection:fold
+    call workshop_analytics.projection:fold
+    call workshop_analytics.projection:fold
+    call workshop_analytics.projection:fold
+    call workshop_analytics.projection:fold
+    call workshop_analytics.projection:fold
+    call workshop_analytics.projection:fold
+    call workshop_analytics.projection:completeness
+block workshop_analytics.ingest:Ingest.accept
+  call workshop_analytics.projection:page_position
+  call workshop_analytics.projection:page_details
+  call workshop_analytics.projection:status_of

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in to the workshop dashboard</title>
+  <link rel="stylesheet" href="/static/live.css">
+</head>
+<body class="login">
+  <main class="login-card">
+    <h1>Workshop dashboard</h1>
+    <p>Paste the dashboard token you were given. It is exchanged for a
+    session cookie and never appears in the address bar.</p>
+    {% if error %}
+    <p class="error" role="alert">{{ error }}</p>
+    {% endif %}
+    <form method="post" action="/login">
+      <label for="token">Dashboard token</label>
+      <input id="token" name="token" type="password" autocomplete="off" autofocus required>
+      <button type="submit">Sign in</button>
+    </form>
+  </main>
+</body>
+</html>

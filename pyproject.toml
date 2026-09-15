@@ -1,0 +1,64 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "jupyterlab-workshop-analytics"
+version = "0.1.0"
+description = "Receives, stores and reports on the progress events that jupyterlab-workshop workshops send."
+readme = "README.md"
+license = "Apache-2.0"
+authors = [{ name = "Graham Dumpleton", email = "Graham.Dumpleton@gmail.com" }]
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "sqlalchemy>=2.0",
+    "alembic>=1.13",
+    "jinja2>=3.1",
+    "jsonschema[format-nongpl]>=4.20",
+    "pyjwt>=2.8",
+    "python-multipart>=0.0.9",
+    "mcp>=1.0",
+    "wrapture[otel]>=1.0.0b4",
+    "wrapture-instrumentation>=1.0.0b2",
+]
+
+[project.optional-dependencies]
+postgres = [
+    "psycopg[binary]>=3.1",
+    "wrapture-instrumentation-postgresql>=1.0.0b1",
+]
+
+[project.scripts]
+workshop-analytics = "workshop_analytics.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "httpx>=0.27",
+    "ruff>=0.5",
+    "mypy>=1.10",
+    "types-jsonschema",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/workshop_analytics"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py314"
+extend-exclude = ["scratch"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "W"]
+
+[tool.mypy]
+python_version = "3.14"
+packages = ["workshop_analytics"]
+mypy_path = "src"
+strict = true
+ignore_missing_imports = true

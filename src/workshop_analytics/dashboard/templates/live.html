@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Workshops in progress</title>
+  <link rel="stylesheet" href="/static/live.css">
+</head>
+<body>
+  <header class="bar">
+    <h1>Workshops in progress</h1>
+    <form id="selector" class="selector" method="get" action="/">
+      <label for="labels">Labels</label>
+      <input id="labels" name="labels" type="text" value="{{ labels }}"
+             placeholder="course=intro-git,term=2026-s2" spellcheck="false">
+      <button type="submit">Apply</button>
+    </form>
+    <div class="viewer">
+      <span id="connection" class="connection" title="Stream state">connecting</span>
+      <span class="who">{{ viewer }}</span>
+      <form method="post" action="/logout"><button type="submit" class="link">Log out</button></form>
+    </div>
+  </header>
+
+  <main>
+    <p id="empty" class="empty" hidden>No workshops are being done right now.</p>
+    <div id="groups"></div>
+  </main>
+
+  <template id="row">
+    <tr class="session">
+      <td class="who"></td>
+      <td class="started"></td>
+      <td class="page"></td>
+      <td class="done"></td>
+      <td class="quiet"></td>
+      <td class="status"></td>
+      <td class="recent"></td>
+    </tr>
+  </template>
+
+  <script>
+    window.DASHBOARD = {
+      labels: {{ labels | tojson }},
+      linger: {{ linger | tojson }}
+    };
+  </script>
+  <script src="/static/live.js"></script>
+</body>
+</html>
