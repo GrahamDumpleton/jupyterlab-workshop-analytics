@@ -1,4 +1,12 @@
+# The namespace enforces the baseline Pod Security Standard itself, so
+# the Deployment is admitted on a cluster whose default for unlabelled
+# namespaces is restricted. The pod meets restricted anyway (non-root,
+# no capabilities, no privilege escalation, the runtime's default
+# seccomp profile), so raise this to restricted if the cluster allows
+# a namespace to choose.
 apiVersion: v1
 kind: Namespace
 metadata:
   name: workshop-analytics
+  labels:
+    pod-security.kubernetes.io/enforce: baseline

@@ -69,16 +69,21 @@ an environment variable; the full list is on
 
 `deploy/kubernetes/` is a kustomize base and two overlays.
 
-The base is a Namespace `workshop-analytics`, a PersistentVolumeClaim
-(ReadWriteOnce, 1Gi), a Deployment with one replica and `strategy:
-Recreate`, since SQLite on one volume cannot be shared and the old
-pod must be gone before the new one opens the database, a Service on
-port 80, and a ConfigMap for the deny list generated from
-`base/denied.txt`. The Deployment runs as a non-root user with no
-capabilities, sets `DATABASE_URL`, `WRAPTURE_CONFIG`,
-`DENIED_TOKENS_FILE` and `COOKIE_SECURE=true`, takes
-`TOKEN_SIGNING_KEY` from a Secret named `workshop-analytics-key`, and
-probes `/healthz`. The Secret is not in the base: each overlay
+The base is a Namespace `workshop-analytics`, labelled to enforce the
+baseline Pod Security Standard so the pod is admitted on a cluster
+whose default for an unlabelled namespace is restricted, a
+PersistentVolumeClaim (ReadWriteOnce, 1Gi), a Deployment with one
+replica and `strategy: Recreate`, since SQLite on one volume cannot
+be shared and the old pod must be gone before the new one opens the
+database, a Service on port 80, and a ConfigMap for the deny list
+generated from `base/denied.txt`. The Deployment runs as a non-root
+user with no capabilities, no privilege escalation and the runtime's
+default seccomp profile, which is everything the restricted standard
+asks for, so the namespace label can be raised to `restricted` on a
+cluster that lets a namespace choose. It sets `DATABASE_URL`,
+`WRAPTURE_CONFIG`, `DENIED_TOKENS_FILE` and `COOKIE_SECURE=true`,
+takes `TOKEN_SIGNING_KEY` from a Secret named `workshop-analytics-key`,
+and probes `/healthz`. The Secret is not in the base: each overlay
 generates it from a `key.env` file beside it, so the key never sits
 in a manifest.
 
@@ -183,6 +188,11 @@ configuration without the printer sink, exporting traces, metrics and
 logs by OTLP to whatever `OTEL_EXPORTER_OTLP_ENDPOINT` names. The
 overlays set that to the viewer or the cluster's collector. A cluster
 that wants different tracing mounts its own ConfigMap over the path.
+A cluster with no collector removes `WRAPTURE_CONFIG` from the
+Deployment's environment instead: the service loads wrapture only
+when it is set, so nothing is traced and nothing is exported.
+Setting `OTEL_SDK_DISABLED` is not enough, since wrapture builds its
+own export pipelines and would keep retrying the missing endpoint.
 What the configuration records, and what it leaves out, is on
 [observability](observability.md).
 
