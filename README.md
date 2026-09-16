@@ -72,3 +72,15 @@ run when there is no workshop to hand.
 The event contract itself, the fields every event carries and what
 each kind adds, is documented by the extension under
 [progress events](https://jupyterlab-workshop.readthedocs.io/en/latest/analytics.html).
+
+## Developed with AI
+
+This package was developed with the help of AI coding assistants,
+working to the author's design and direction, with the author
+reviewing what they produce. If you would rather not use software
+produced that way, that is understood, and this package is not for
+you.
+
+## License
+
+Apache License 2.0.
