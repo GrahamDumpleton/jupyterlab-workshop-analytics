@@ -13,7 +13,7 @@ import json
 import logging
 import threading
 import time
-from collections import deque
+from collections import defaultdict, deque
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -27,7 +27,13 @@ from .labels import merge_labels
 from .live import Broadcaster
 from .projection import apply_events, live_row
 from .schema import EventValidator
-from .store.writes import StoredEvent, event_hash, insert_events, utcnow
+from .store.writes import (
+    StoredEvent,
+    event_hash,
+    insert_events,
+    parse_timestamp,
+    utcnow,
+)
 from .tokens import Claims
 
 log = logging.getLogger(__name__)
@@ -116,6 +122,58 @@ class _Unparsed:
     line: int
 
 
+@dataclass(frozen=True)
+class Exported:
+    """An event as the `export` command wrote it: the event and how it was stored."""
+
+    event: dict[str, Any]
+    labels: dict[str, str]
+    token_id: str
+    received_at: datetime
+
+
+def unwrap(items: Sequence[Any]) -> list[Any]:
+    """Recognise the export format among the items, leaving the rest as they are.
+
+    A line the service exported carries the event under `event`, beside
+    the labels it was stored with, the token id it arrived under and
+    when it was received; a line of the extension's own file carries the
+    event's fields at the top level. Either kind imports, in one file
+    even, and an exported line restores all four, its labels trusted as
+    stored, since whoever runs the import owns the store.
+    """
+
+    unwrapped: list[Any] = []
+
+    for item in items:
+        if not (
+            isinstance(item, dict)
+            and "kind" not in item
+            and isinstance(item.get("event"), dict)
+        ):
+            unwrapped.append(item)
+
+            continue
+
+        try:
+            received = parse_timestamp(item.get("received_at"))
+        except ValueError:
+            received = utcnow()
+
+        unwrapped.append(
+            Exported(
+                event=dict(item["event"]),
+                labels={
+                    str(k): str(v) for k, v in dict(item.get("labels") or {}).items()
+                },
+                token_id=str(item.get("token_id") or ""),
+                received_at=received,
+            )
+        )
+
+    return unwrapped
+
+
 class RateLimiter:
     """A per-token cap on batches per minute, in memory."""
 
@@ -191,7 +249,9 @@ class Ingest:
 
                     continue
 
-                problems = self.validator.problems(item)
+                exported = item if isinstance(item, Exported) else None
+                candidate = exported.event if exported is not None else item
+                problems = self.validator.problems(candidate)
 
                 if problems:
                     result.rejected += 1
@@ -201,19 +261,31 @@ class Ingest:
 
                     continue
 
-                event = dict(item)
-                reported = {
-                    str(k): str(v) for k, v in dict(event.get("labels") or {}).items()
-                }
-                labels = merge_labels(trusted, reported)
+                # An exported event keeps the labels it was stored with,
+                # this import's own trusted labels on top; a plain event
+                # has its labels merged under the token's.
+                event = dict(candidate)
+
+                if exported is not None:
+                    labels = {**exported.labels, **trusted}
+                else:
+                    reported = {
+                        str(k): str(v)
+                        for k, v in dict(event.get("labels") or {}).items()
+                    }
+                    labels = merge_labels(trusted, reported)
 
                 records.append(
                     StoredEvent(
                         event=event,
                         labels=labels,
                         hash=event_hash(event),
-                        token_id=token_id,
-                        received_at=moment,
+                        token_id=(exported.token_id or token_id)
+                        if exported is not None
+                        else token_id,
+                        received_at=exported.received_at
+                        if exported is not None
+                        else moment,
                     )
                 )
 
@@ -224,9 +296,19 @@ class Ingest:
         with wrapture.block("ingest.store"):
             with self.engine.begin() as connection:
                 inserted = insert_events(connection, records)
-                projected = apply_events(
-                    connection, [record.event for record in inserted], token_id
-                )
+
+                # Sessions are projected under the token their events
+                # arrived with, which an exported file may vary line by line.
+                by_token: dict[str, list[dict[str, Any]]] = defaultdict(list)
+
+                for record in inserted:
+                    by_token[record.token_id].append(record.event)
+
+                projected = [
+                    session
+                    for stored_token, stored in by_token.items()
+                    for session in apply_events(connection, stored, stored_token)
+                ]
 
             result.stored = len(inserted)
             result.duplicates = len(records) - len(inserted)

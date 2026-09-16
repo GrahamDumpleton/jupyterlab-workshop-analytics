@@ -20,6 +20,8 @@ $ kubectl -n workshop-analytics exec deploy/workshop-analytics -- \
 $ kubectl -n workshop-analytics cp events.jsonl workshop-analytics-<pod>:/tmp/events.jsonl
 $ kubectl -n workshop-analytics exec deploy/workshop-analytics -- \
     workshop-analytics import /tmp/events.jsonl --label course=intro
+$ kubectl -n workshop-analytics exec deploy/workshop-analytics -- \
+    workshop-analytics export > backup.jsonl
 ```
 
 With Docker it is `docker exec <container> workshop-analytics ...`.
@@ -90,8 +92,35 @@ labels, so no arguments are needed.
 `--token` names a signed ingest token whose `jti` and labels the
 import counts under, exactly as if the file had been posted with it;
 `--label` adds a trusted label for this import alone, for a file that
-predates labels. The command prints how many events were received,
-stored, already present and rejected, with the first few reasons.
+predates labels. A file written by `export` is recognised by its shape
+and restores what it recorded, described below. The command prints
+how many events were received, stored, already present and rejected,
+with the first few reasons.
+
+## export
+
+```console
+$ workshop-analytics export [--output events.jsonl] [--selector key=value,...] \
+    [--name <workshop>] [--collection <url>] [--since <when>] [--until <when>]
+```
+
+Writes the stored events as JSON lines, oldest first, to the file or
+to standard output, and says on standard error how many. Each line
+holds the event as it was received under `event`, beside what the
+store added: the labels it was kept with, the `token_id` it arrived
+under and `received_at`. Those are what a plain events file does not
+carry, and `import` restores all of them from this format, the labels
+trusted as stored rather than merged as a sender's, since whoever
+runs the import owns the store. The events table is the whole store,
+sessions being derived from it and projected as the import goes, so a
+deployment moves to a fresh instance, or from SQLite to PostgreSQL,
+by exporting from one and importing into the other.
+
+The filters are the API's: a label selector, a workshop by name, a
+collection (an empty string for sessions outside any), and `--since`
+and `--until` on the event's own timestamp. Events are deduplicated
+by content, so a file loaded twice stores nothing the second time,
+and a periodic export is a backup that can always be applied.
 
 ## key generate
 

@@ -110,8 +110,8 @@ marker appears the moment the event after the gap arrives.
 
 Clicking a session id opens `/sessions/<id>`, the session on its own:
 a summary card with its status, when it started and ended or was
-last heard from, its duration, its progress through the pages, how
-many of its events arrived, its workshop, labels and token, and the
+last heard from, its duration, its progress through the pages with
+any gates it skipped, how many of its events arrived, its workshop, labels and token, and the
 chain of sessions it belongs to when it resumed another or was
 resumed; a table of the workshop's pages with whether each was
 entered and left, the active time on it and how many times it was

@@ -293,6 +293,53 @@ def resumed(
     return variant(renumbered, session_id, user=user, shift=shift)
 
 
+BASE_FIELDS = (
+    "kind",
+    "ts",
+    "session_id",
+    "instance_id",
+    "workshop",
+    "name",
+    "version",
+    "source",
+    "collection",
+    "seq",
+    "labels",
+    "frontend",
+    "frontend_version",
+    "host",
+    "platform",
+    "trust",
+    "user",
+)
+
+
+def skipping_gates(
+    events: list[dict[str, Any]], session_id: str, *, instance_id: str = ""
+) -> list[dict[str, Any]]:
+    """A copy of a recording as a session that moved past an unmet gate once.
+
+    The recording's last action becomes a `gate-skipped` on the same
+    page at the same moment, so the session's pages, timing and
+    outcome are the recording's and only the gate count differs.
+    """
+
+    copies = variant(events, session_id, instance_id=instance_id)
+    index = max(i for i, e in enumerate(copies) if e["kind"] == "action-executed")
+    action = copies[index]
+    skipped = {key: action[key] for key in BASE_FIELDS if key in action}
+
+    skipped.update(
+        kind="gate-skipped",
+        page=action.get("page", ""),
+        requirements=["verify:check-1"],
+    )
+
+    copies[index] = skipped
+
+    return copies
+
+
 COLLECTION = "https://example.org/collection.json"
 
 

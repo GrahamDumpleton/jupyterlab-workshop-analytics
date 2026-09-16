@@ -405,6 +405,12 @@ class Journey:
 
         return max(len(segment.session.pages or []) for segment in self.segments)
 
+    @property
+    def gates_skipped(self) -> int:
+        """How many times a session in the chain moved past an unmet gate."""
+
+        return sum(int(segment.session.gates_skipped or 0) for segment in self.segments)
+
 
 def journeys(loaded: Sequence[Loaded]) -> list[Journey]:
     """Chain the sessions by their resume links, oldest first.
@@ -508,6 +514,7 @@ class Outcomes:
     restarts: int
     resumes: int
     finished: int
+    finished_skipping_gates: int
     abandoned: int
     lost: int
     in_progress: int
@@ -531,6 +538,7 @@ def outcomes(loaded: Sequence[Loaded]) -> Outcomes:
         restarts=sum(1 for item in loaded if item.session.restarted_from),
         resumes=sum(1 for item in loaded if item.session.resumed_from),
         finished=counts["finished"],
+        finished_skipping_gates=sum(1 for chain in finished if chain.gates_skipped),
         abandoned=counts["abandoned"],
         lost=counts["lost"],
         in_progress=counts["in_progress"],
@@ -1321,6 +1329,7 @@ class SessionSummary:
     page_position: int
     page_count: int
     pages_done: int
+    gates_skipped: int
     events_received: int
     events_expected: int
     gaps: list[list[int]]
@@ -1362,6 +1371,7 @@ def session_summary(item: Loaded) -> SessionSummary:
         page_position=position,
         page_count=len(ids),
         pages_done=int(session.pages_done or 0),
+        gates_skipped=int(session.gates_skipped or 0),
         events_received=int(session.events_received or 0),
         events_expected=int(session.events_expected or 0),
         gaps=[list(gap) for gap in session.gaps or []],
@@ -2135,6 +2145,10 @@ METRICS = {
     "completion_rate": "finished journeys over settled journeys, where settled "
     "is finished plus abandoned plus lost; journeys still in progress are "
     "left out of both",
+    "finished_skipping_gates": "of the finished journeys, those in which a "
+    "session moved past unmet requirements under soft gating at least once: "
+    "finishes the workshop's checks did not confirm, counted as finished by "
+    "the completion rate",
     "duration_seconds": "of a finished journey, the time from each session's "
     "start to its end or last event, summed over the chain, so time between a "
     "stop and a resume is not counted; percentiles over the finished journeys",

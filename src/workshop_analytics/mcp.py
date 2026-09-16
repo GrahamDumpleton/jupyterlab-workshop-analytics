@@ -218,8 +218,9 @@ def build_server(app: FastAPI) -> MCPServer:
         )
 
     @server.tool(
-        description="A workshop's outcomes: starts, resumes, finished, "
-        "abandoned, lost, completion rate and duration percentiles, in total "
+        description="A workshop's outcomes: starts, resumes, finished, finished "
+        "skipping gates, abandoned, lost, completion rate and duration "
+        "percentiles, in total "
         "and by a dimension (version by default, or a field or label key)."
     )
     async def workshop_summary(

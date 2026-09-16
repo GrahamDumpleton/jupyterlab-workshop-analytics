@@ -26,7 +26,7 @@ the [MCP server](mcp.md) at `/mcp`.
 | `GET /api/workshops` | Discovery: every `name` and `collection` pair with sessions, with the sources and versions seen, session and journey counts, finishes, completion rate, share complete, first and last activity, and whether any session carried an identity. |
 | `GET /api/collections` | The collections seen, each with its workshops in the order instances took them, with session counts and completion. |
 | `GET /api/collections/progress?collection=` | The collection-level funnel: how many instances took each workshop, how many took them in order, and where they stopped. |
-| `GET /api/workshops/{name}` | Outcomes in total and by version (or another `group_by`): sessions, journeys, starts, restarts, resumes, finished, abandoned, lost, in progress, completion rate, duration and pages-done percentiles. |
+| `GET /api/workshops/{name}` | Outcomes in total and by version (or another `group_by`): sessions, journeys, starts, restarts, resumes, finished, finished skipping gates, abandoned, lost, in progress, completion rate, duration and pages-done percentiles. |
 | `GET /api/workshops/{name}/funnel` | Journeys reaching each page in order, leaving it, and stopping on it. |
 | `GET /api/workshops/{name}/pages` | Time on each page from `page-leave`, as percentiles, with entries per session. |
 | `GET /api/workshops/{name}/actions` | Per action id: runs by trigger, ok, error, skipped and downgraded, and whether the clickable actions are used at all. |
@@ -130,6 +130,12 @@ The metrics, as `describe` also states them:
 - **Completion rate** is finished journeys over settled journeys,
   where settled is finished plus abandoned plus lost. Journeys still
   in progress are left out of both sides.
+
+- **Finished skipping gates** is, of the finished journeys, those in
+  which a session moved past unmet requirements under soft gating at
+  least once. The completion rate counts them as finished, since
+  Finish was pressed, so a report quoting the rate says how many of
+  its finishes the workshop's checks did not confirm.
 
 - **Duration** is, for a finished journey, the time from each
   session's start to its end or last event, summed over the chain, so

@@ -32,7 +32,7 @@
         <dt>Started</dt><dd><time datetime="{{ s.started_at }}">{{ s.started_at }}</time></dd>
         {% if s.ended_at %}<dt>Ended</dt><dd><time datetime="{{ s.ended_at }}">{{ s.ended_at }}</time></dd>{% else %}<dt>Last event</dt><dd><time datetime="{{ s.last_seen }}">{{ s.last_seen }}</time></dd>{% endif %}
         <dt>Duration</dt><dd>{{ s.duration_seconds | duration }}</dd>
-        <dt>Progress</dt><dd>{{ s.pages_done }} of {{ s.page_count }} pages done{% if s.current_page %}, on {{ s.current_page }}{% endif %}</dd>
+        <dt>Progress</dt><dd>{{ s.pages_done }} of {{ s.page_count }} pages done{% if s.gates_skipped %}, {{ s.gates_skipped }} gate{{ '' if s.gates_skipped == 1 else 's' }} skipped{% endif %}{% if s.current_page %}, on {{ s.current_page }}{% endif %}</dd>
         <dt>Events</dt><dd>{{ s.events_received }} of {{ s.events_expected }} expected{% if s.complete %}, complete{% endif %}</dd>
         <dt>Workshop</dt><dd>{{ s.workshop }} {{ s.version }} <span class="muted">{{ s.source }}</span></dd>
         {% if s.labels %}<dt>Labels</dt><dd>{% for key, value in s.labels.items() %}<span class="label">{{ key }}={{ value }}</span> {% endfor %}</dd>{% endif %}

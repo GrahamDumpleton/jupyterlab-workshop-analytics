@@ -28,7 +28,7 @@ from workshop_analytics.store import make_engine
 from workshop_analytics.store.tables import events, sessions
 from workshop_analytics.tokens import inspect, verify
 
-from .conftest import FIXTURES
+from .conftest import FIXTURES, load_fixture
 
 
 @pytest.fixture
@@ -236,6 +236,87 @@ def test_migrate_and_rebuild_report_what_they_did(
 
     assert run("rebuild") == 0
     assert "rebuilt 1 session(s)" in capsys.readouterr().out
+
+
+def test_export_round_trips_the_store(
+    environment: dict[str, str], capsys: Any, tmp_path: Path
+) -> None:
+    assert (
+        run(
+            "token",
+            "issue",
+            "--name",
+            "class",
+            "--expires",
+            "1d",
+            "--label",
+            "class=offline",
+            "--json",
+        )
+        == 0
+    )
+
+    token = json.loads(capsys.readouterr().out)["token"]
+
+    hello_file = str(FIXTURES / "hello-jupyterlab.jsonl")
+    why_file = str(FIXTURES / "why-a-workshop.jsonl")
+
+    assert run("import", hello_file, "--token", token) == 0
+    assert run("import", why_file, "--label", "course=why") == 0
+
+    capsys.readouterr()
+
+    # The whole store, and a selection of it.
+    whole = tmp_path / "export.jsonl"
+    narrowed = tmp_path / "why.jsonl"
+
+    assert run("export", "--output", str(whole)) == 0
+    assert "exported 86 event(s)" in capsys.readouterr().err
+    assert run("export", "--selector", "course=why", "--output", str(narrowed)) == 0
+    assert len(narrowed.read_text().splitlines()) == 23
+
+    lines = [json.loads(line) for line in whole.read_text().splitlines()]
+
+    assert len(lines) == 86
+    assert set(lines[0]) == {"event", "labels", "token_id", "received_at"}
+    assert lines[0]["labels"] == {"class": "offline"}
+    assert lines[0]["token_id"] == inspect(token).jti
+    assert "labels" not in lines[0]["event"] or lines[0]["event"]["labels"] == {}
+
+    # Restored into a fresh store, the file keeps what a plain import
+    # cannot: the stored labels, each event's token and its receipt time.
+    restored = f"sqlite:///{tmp_path / 'restored.db'}"
+
+    with wrapture.binding(os.environ, item="DATABASE_URL").overrides(restored):
+        assert run("import", str(whole)) == 0
+        assert "stored 86" in capsys.readouterr().out
+        assert run("import", str(whole)) == 0
+        assert "duplicates 86" in capsys.readouterr().out
+
+    engine = make_engine(restored)
+
+    with engine.connect() as connection:
+        rows = {row.session_id: row for row in connection.execute(select(sessions))}
+        first = connection.execute(select(events).order_by(events.c.id).limit(1)).one()
+
+    engine.dispose()
+
+    hello = rows[load_fixture("hello-jupyterlab")[0]["session_id"]]
+    why = rows[load_fixture("why-a-workshop")[0]["session_id"]]
+
+    assert hello.labels == {"class": "offline"}
+    assert hello.token_id == inspect(token).jti
+    assert hello.complete is True
+    assert why.labels == {"course": "why"}
+    assert why.token_id == ""
+    assert first.received_at.isoformat() + "Z" == lines[0]["received_at"]
+
+
+def test_export_refuses_a_bad_selector(
+    environment: dict[str, str], capsys: Any
+) -> None:
+    assert run("export", "--selector", "not a selector") == 2
+    assert "selector" in capsys.readouterr().err
 
 
 def test_import_reports_a_missing_file(

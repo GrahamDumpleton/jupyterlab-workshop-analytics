@@ -142,6 +142,11 @@ Contour's `num-trusted-hops` tells it to trust the front's headers;
 without that the service sees `http`, which only matters for the
 absolute URL in a trailing-slash redirect.
 
+A backup is an export: `workshop-analytics export` in the pod, its
+output redirected to a file, on whatever schedule suits, and
+`import` of that file restores it, into a fresh instance included.
+The [command line](cli.md#export) page has the details.
+
 `just manifests local` and `just manifests production` render an
 overlay without applying it.
 

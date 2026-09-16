@@ -46,6 +46,10 @@ rebuild:
 import *args:
     uv run workshop-analytics import "$@"
 
+# Write the stored events as JSON lines that import reads back, e.g. `just export --output events.jsonl`.
+export *args:
+    uv run workshop-analytics export "$@"
+
 # Print a fresh signing key for TOKEN_SIGNING_KEY.
 key-generate:
     uv run workshop-analytics key generate

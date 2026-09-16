@@ -52,7 +52,10 @@ through either.
 - **How many did it, and how did it go.** `workshop_summary` for the
   workshop: sessions, journeys, starts, resumes, finished, abandoned,
   lost, in progress, completion rate, duration percentiles, in total
-  and by version (or `group_by` another field or a label key).
+  and by version (or `group_by` another field or a label key). Quote
+  `finished_skipping_gates` beside the completion rate: those finishes
+  moved past unmet requirements under soft gating, so the workshop's
+  own checks did not confirm them.
 
 - **Where they stop.** `funnel`: journeys entering, leaving and
   stopping on each page in order. The page most journeys stop on is

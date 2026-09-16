@@ -22,7 +22,7 @@ from workshop_analytics.queries import (
 from workshop_analytics.selectors import parse_selector
 from workshop_analytics.store.writes import utcnow
 
-from .conftest import COLLECTION, Seeded
+from .conftest import COLLECTION, Seeded, skipping_gates
 
 
 @pytest.fixture
@@ -105,6 +105,25 @@ def test_data_quality_leaves_out_gaps_and_missing_heads_unless_asked(
     assert widened.data_quality.included == 7
     assert widened.data_quality.excluded_gaps == 0
     assert widened.total.sessions == 7
+
+
+def test_finishes_that_skipped_gates_are_told_apart(
+    app: Any, now: datetime, settings: Settings, seeded: Seeded
+) -> None:
+    app.state.ingest.accept(
+        skipping_gates(seeded.hello, "hello-skipped", instance_id="inst-skip"), None
+    )
+
+    with app.state.engine.connect() as connection:
+        summary = queries.workshop_summary(connection, HELLO, now, settings)
+        detail = queries.session_detail(connection, "hello-skipped", now, settings)
+
+    # One more finished journey, and it is the one that skipped a gate;
+    # the completion rate still counts it as finished.
+    assert summary.total.finished == 3
+    assert summary.total.finished_skipping_gates == 1
+    assert summary.total.completion_rate == round(3 / 4, 4)
+    assert detail.session.gates_skipped == 1
 
 
 def test_outcomes_chain_resumed_sessions_into_journeys(

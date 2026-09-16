@@ -57,6 +57,7 @@ class Session:
     pages_entered: list[str] | None = None
     pages_left: list[str] | None = None
     pages_done: int = 0
+    gates_skipped: int = 0
     finished_at: datetime | None = None
     abandoned_at: datetime | None = None
     resumed_from: str = ""
@@ -176,6 +177,9 @@ def fold(session: Session, event: dict[str, Any], labels: dict[str, str]) -> Non
 
         if page:
             session.current_page = page
+
+    elif kind == "gate-skipped":
+        session.gates_skipped += 1
 
     if kind in RECENT_KINDS:
         assert session.recent is not None

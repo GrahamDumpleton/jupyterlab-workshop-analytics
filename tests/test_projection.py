@@ -25,7 +25,7 @@ from workshop_analytics.schema import EventValidator
 from workshop_analytics.store.tables import sessions
 from workshop_analytics.store.writes import parse_timestamp
 
-from .conftest import load_fixture
+from .conftest import load_fixture, skipping_gates
 
 GOLDEN = Path(__file__).with_name("golden") / "projection.txt"
 
@@ -83,6 +83,24 @@ def test_a_complete_session_projects_whole(ingest: Ingest, engine: Engine) -> No
     assert row.complete is True
     assert [entry["kind"] for entry in row.recent][-1] == "action-executed"
     assert len(row.recent) == 5
+
+
+def test_gates_skipped_are_counted_on_the_session(
+    ingest: Ingest, engine: Engine
+) -> None:
+    events = skipping_gates(load_fixture("hello-jupyterlab"), "hello-skipped")
+
+    ingest.accept(events, None)
+
+    row = session_row(engine, "hello-skipped")
+
+    assert row.gates_skipped == 1
+    assert row.finished_at is not None
+    assert row.complete is True
+
+    rebuild(engine)
+
+    assert session_row(engine, "hello-skipped").gates_skipped == 1
 
 
 def test_a_gap_in_the_middle_is_a_delivery_failure(

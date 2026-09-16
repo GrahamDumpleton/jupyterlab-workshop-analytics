@@ -22,7 +22,7 @@ import socket
 import sys
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, TextIO
 
 from .config import Settings
 from .labels import parse_label
@@ -66,6 +66,24 @@ def build_parser() -> argparse.ArgumentParser:
 
     commands.add_parser("migrate", help="bring the database up to the latest schema")
     commands.add_parser("rebuild", help="recompute every session from the events")
+
+    dump = commands.add_parser(
+        "export", help="write the stored events as JSON lines import reads back"
+    )
+    dump.add_argument(
+        "--output", type=Path, help="the file to write (default: standard output)"
+    )
+    dump.add_argument(
+        "--selector", default="", help="a label selector, as the API takes it"
+    )
+    dump.add_argument("--name", default="", help="one workshop by manifest name")
+    dump.add_argument(
+        "--collection",
+        default=None,
+        help="one collection; an empty string for sessions outside any",
+    )
+    dump.add_argument("--since", default="", help="events from this moment, UTC")
+    dump.add_argument("--until", default="", help="events before this moment, UTC")
 
     load = commands.add_parser(
         "import", help="feed an events.jsonl file through the sink's pipeline"
@@ -277,7 +295,7 @@ def command_rebuild(args: argparse.Namespace) -> int:
 def command_import(args: argparse.Namespace) -> int:
     """Feed a file of events through the same pipeline as the sink."""
 
-    from .ingest import Ingest, parse_body
+    from .ingest import Ingest, parse_body, unwrap
     from .live import Broadcaster
     from .schema import EventValidator
     from .store import make_engine, migrate
@@ -299,7 +317,7 @@ def command_import(args: argparse.Namespace) -> int:
         raise CommandError(f"cannot read {args.path}: {error}") from error
 
     content_type = "application/json" if args.path.suffix == ".json" else ""
-    items = parse_body(body, content_type)
+    items = unwrap(parse_body(body, content_type))
     engine = make_engine(settings.database_url)
 
     migrate(engine)
@@ -323,6 +341,89 @@ def command_import(args: argparse.Namespace) -> int:
         print(f"  {problem}")
 
     return 0 if result.stored or not result.rejected else 1
+
+
+def command_export(args: argparse.Namespace) -> int:
+    """Write the stored events as JSON lines that `import` reads back whole.
+
+    Each line holds the event as it was received beside what the store
+    added: the labels it was kept with, the token id and the receipt
+    time. The events table is the whole store, sessions being derived
+    from it, so the file moves a deployment or backs one up.
+    """
+
+    from sqlalchemy import select
+
+    from .queries import parse_moment
+    from .selectors import SelectorError, matches, parse_selector
+    from .store import make_engine, migrate
+    from .store.tables import events
+
+    settings = _settings()
+
+    try:
+        terms = parse_selector(args.selector)
+        since = parse_moment(args.since) if args.since else None
+        until = parse_moment(args.until) if args.until else None
+    except (SelectorError, ValueError) as error:
+        raise CommandError(str(error)) from error
+
+    statement = select(events).order_by(events.c.id)
+
+    if args.name:
+        statement = statement.where(events.c.name == args.name)
+
+    if args.collection is not None:
+        statement = statement.where(events.c.collection == args.collection)
+
+    if since is not None:
+        statement = statement.where(events.c.ts >= since)
+
+    if until is not None:
+        statement = statement.where(events.c.ts < until)
+
+    engine = make_engine(settings.database_url)
+
+    migrate(engine)
+
+    count = 0
+
+    try:
+        output: TextIO = (
+            args.output.open("w", encoding="utf-8") if args.output else sys.stdout
+        )
+
+        try:
+            with engine.connect() as connection:
+                rows = connection.execution_options(yield_per=1000).execute(statement)
+
+                for row in rows:
+                    labels = dict(row.labels or {})
+
+                    if not matches(labels, terms):
+                        continue
+
+                    line = {
+                        "event": row.payload,
+                        "labels": labels,
+                        "token_id": str(row.token_id),
+                        "received_at": row.received_at.isoformat() + "Z",
+                    }
+
+                    output.write(json.dumps(line, separators=(",", ":")) + "\n")
+                    count += 1
+        finally:
+            if args.output:
+                output.close()
+    except OSError as error:
+        raise CommandError(f"cannot write {args.output}: {error}") from error
+    finally:
+        engine.dispose()
+
+    # The count goes to standard error, since standard output may be the file.
+    print(f"exported {count} event(s)", file=sys.stderr)
+
+    return 0
 
 
 def command_key_generate(args: argparse.Namespace) -> int:
@@ -388,6 +489,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         ("migrate", None): command_migrate,
         ("rebuild", None): command_rebuild,
         ("import", None): command_import,
+        ("export", None): command_export,
         ("key", "generate"): command_key_generate,
         ("token", "issue"): command_token_issue,
         ("token", "inspect"): command_token_inspect,
