@@ -88,6 +88,10 @@ main { padding: 16px 20px 40px; }
 
 .empty { color: var(--muted); }
 
+/* An empty state inside a card sits where the table's cells would. */
+.card > .empty { margin: 0; padding: 12px 14px; }
+.chart-body .empty { margin: 0; }
+
 .group { margin-bottom: 24px; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; }
 
 .group h2 {

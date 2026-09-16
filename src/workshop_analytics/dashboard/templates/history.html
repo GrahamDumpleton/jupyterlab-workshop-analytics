@@ -42,6 +42,7 @@
       <div class="field">
         <label for="period">Period</label>
         <select id="period" name="period">
+          {% if period.custom %}<option value="" selected>Custom range</option>{% endif %}
           {% for key, label in period_labels.items() %}<option value="{{ key }}"{% if period.key == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
         </select>
       </div>
