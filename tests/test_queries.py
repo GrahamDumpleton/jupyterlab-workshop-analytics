@@ -22,7 +22,7 @@ from workshop_analytics.queries import (
 from workshop_analytics.selectors import parse_selector
 from workshop_analytics.store.writes import utcnow
 
-from .conftest import COLLECTION, Seeded, skipping_gates, without_inventory
+from .conftest import COLLECTION, Seeded, skipping_gates, variant, without_inventory
 
 
 @pytest.fixture
@@ -615,7 +615,7 @@ def test_describe_reports_what_the_store_holds(
     description = queries.describe(connection, now, settings)
 
     assert description.service["dialect"] == "sqlite"
-    assert description.service["schema_version"] == "0.2.1"
+    assert description.service["schema_version"] == "0.2.2"
     assert "workshop-start" in description.events["kinds"]
     assert "active_ms" in description.events["kinds"]["page-leave"]["fields"]
     assert "seq" in description.events["base_fields"]
@@ -677,3 +677,74 @@ def test_moments_parse_from_dates_and_offsets() -> None:
 
     with pytest.raises(ValueError):
         queries.parse_moment("yesterday")
+
+
+def test_a_declared_id_identifies_a_collection_wherever_it_runs(
+    app: Any, now: datetime, settings: Settings, seeded: Seeded
+) -> None:
+    """Two deployments subscribe to the same file path but declare ids.
+
+    Without the ids the service would read the two as one collection;
+    with them each is its own, known by the id, with the title beside
+    it for display and the path still in the stored events.
+    """
+
+    ingest = app.state.ingest
+
+    ingest.accept(
+        variant(
+            seeded.why,
+            "why-a",
+            instance_id="inst-a",
+            collection="collection.json",
+            collection_id="example.org/a",
+            collection_title="Collection A",
+        ),
+        None,
+    )
+    ingest.accept(
+        variant(
+            seeded.guided,
+            "guided-b",
+            instance_id="inst-b",
+            collection="collection.json",
+            collection_id="example.org/b",
+            collection_title="Collection B",
+        ),
+        None,
+    )
+
+    with app.state.engine.connect() as connection:
+        listings = queries.list_workshops(connection, Filters(), now, settings)
+        collections = queries.list_collections(connection, Filters(), now, settings)
+        only_a = queries.list_sessions(
+            connection, Filters(collection="example.org/a"), now, settings
+        )
+        progress = queries.collection_progress(
+            connection, Filters(collection="example.org/b"), now, settings
+        )
+        summary = queries.workshop_summary(
+            connection,
+            Filters(name="why-a-workshop", collection="example.org/a"),
+            now,
+            settings,
+        )
+        events = queries.session_events(connection, "why-a", now, settings)
+
+    pairs = {(item.name, item.collection, item.collection_title) for item in listings}
+
+    assert ("why-a-workshop", "example.org/a", "Collection A") in pairs
+    assert ("guided-not-documented", "example.org/b", "Collection B") in pairs
+    assert not any(item.collection == "collection.json" for item in listings)
+    assert [(c.collection, c.collection_title) for c in collections] == [
+        ("example.org/a", "Collection A"),
+        ("example.org/b", "Collection B"),
+        (COLLECTION, ""),
+    ]
+    assert [s.session_id for s in only_a.sessions] == ["why-a"]
+    assert only_a.sessions[0].collection_title == "Collection A"
+    assert progress.collection_title == "Collection B"
+    assert [step.name for step in progress.steps] == ["guided-not-documented"]
+    assert summary.workshop.collection_title == "Collection A"
+    assert events[0]["collection"] == "collection.json"
+    assert events[0]["collection_id"] == "example.org/a"

@@ -22,7 +22,7 @@
         <select id="collection" name="collection">
           <option value="">Any</option>
           <option value="none"{% if params.collection == "none" %} selected{% endif %}>Outside any collection</option>
-          {% for collection in choices.collections %}<option value="{{ collection }}"{% if collection == params.collection %} selected{% endif %}>{{ collection }}</option>{% endfor %}
+          {% for collection, label in choices.collections %}<option value="{{ collection }}"{% if collection == params.collection %} selected{% endif %}>{{ label }}</option>{% endfor %}
         </select>
       </div>
       <div class="field">
@@ -82,7 +82,7 @@
             <td class="who"><a href="/sessions/{{ s.session_id | urlencode }}" title="Session {{ s.session_id }}: open its timeline">{{ s.session_id[-8:] }}</a>
               <span class="instance" title="{% if s.user %}Learner {{ s.user }}{% else %}Instance {{ s.instance_id }} (no learner identity){% endif %}">{{ s.user or s.instance_id[:8] }} · {{ s.host }} · {{ s.frontend }}</span></td>
             <td class="who"><a href="/workshops/{{ s.name | urlencode }}?collection={{ s.collection | urlencode }}">{{ s.name }}</a>
-              {% if s.collection %}<span class="instance" title="{{ s.collection }}">{{ s.collection.rsplit('/', 1)[-1] }}</span>{% endif %}</td>
+              {% if s.collection %}<span class="instance" title="{{ s.collection }}">{{ s.collection_title or s.collection }}</span>{% endif %}</td>
             <td><time datetime="{{ s.started_at }}">{{ s.started_at }}</time></td>
             <td>{% if s.ended_at %}<time datetime="{{ s.ended_at }}">{{ s.ended_at }}</time>{% else %}<span class="muted" title="Last event">{% if s.last_seen %}<time datetime="{{ s.last_seen }}">{{ s.last_seen }}</time>{% endif %}</span>{% endif %}</td>
             <td>{{ s.duration_seconds | duration }}</td>

@@ -29,7 +29,7 @@ from jsonschema import Draft7Validator, FormatChecker
 
 SCHEMA_FILE = Path(__file__).with_name("events.schema.json")
 
-SCHEMA_VERSION = "0.2.1"
+SCHEMA_VERSION = "0.2.2"
 
 
 def load_schema() -> dict[str, Any]:

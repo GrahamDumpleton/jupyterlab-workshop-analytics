@@ -65,6 +65,7 @@ sessions = Table(
     Column("name", String(255), nullable=False, default=""),
     Column("source", String(1024), nullable=False, default=""),
     Column("collection", String(1024), nullable=False, default=""),
+    Column("collection_title", String(255), nullable=False, default=""),
     Column("workshop", String(1024), nullable=False, default=""),
     Column("version", String(64), nullable=False, default=""),
     Column("frontend", String(64), nullable=False, default=""),

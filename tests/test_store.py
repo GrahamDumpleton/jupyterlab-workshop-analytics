@@ -29,7 +29,7 @@ def test_migrating_twice_is_harmless(engine: Engine) -> None:
             text("SELECT version_num FROM alembic_version")
         ).scalar()
 
-    assert version == "0003"
+    assert version == "0004"
 
 
 def test_a_file_database_runs_in_wal_mode(settings: Settings) -> None:

@@ -11,7 +11,7 @@
       <h2><a href="/workshops/{{ s.name | urlencode }}?collection={{ s.collection | urlencode }}">{{ s.name }}</a>
         <span class="status status-{{ s.status }}">{{ s.status }}</span>
         {% if s.gaps %}<span class="gap" title="missing events: {% for g in s.gaps %}{{ g[0] }}{% if g[1] != g[0] %}-{{ g[1] }}{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}">gap</span>{% endif %}
-        {% if s.collection %}<span class="collection">{{ s.collection }}</span>{% endif %}
+        {% if s.collection %}<span class="collection" title="{{ s.collection }}">{{ s.collection_title or s.collection }}</span>{% endif %}
       </h2>
       <dl>
         <dt>Session</dt><dd>{{ s.session_id }} <span class="muted">{{ s.host }} · {{ s.frontend }} {{ s.frontend_version }} · {{ s.platform }}</span></dd>

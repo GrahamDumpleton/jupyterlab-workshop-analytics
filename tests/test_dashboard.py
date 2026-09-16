@@ -18,7 +18,7 @@ from workshop_analytics.config import SESSION_COOKIE
 from workshop_analytics.queries import Filters
 from workshop_analytics.store.writes import utcnow
 
-from .conftest import COLLECTION, Seeded, without_inventory
+from .conftest import COLLECTION, Seeded, variant, without_inventory
 
 
 def with_cookie(value: str) -> dict[str, str]:
@@ -451,3 +451,43 @@ async def test_the_overview_lists_workshops_and_collections(
     bad = await client.get("/", params={"since": "never"}, headers=cookie)
 
     assert bad.status_code == 400
+
+
+async def test_the_pages_show_a_collection_by_its_title(
+    app: Any, client: httpx.AsyncClient, cookie: dict[str, str], seeded: Seeded
+) -> None:
+    app.state.ingest.accept(
+        variant(
+            seeded.why,
+            "why-a",
+            instance_id="inst-a",
+            collection="collection.json",
+            collection_id="example.org/a",
+            collection_title="Collection A",
+        ),
+        None,
+    )
+
+    history = await client.get(
+        "/sessions", params={"collection": "example.org/a"}, headers=cookie
+    )
+
+    assert "1 match" in history.text
+    assert 'title="example.org/a">Collection A</span>' in history.text
+    assert (
+        '<option value="example.org/a" selected>Collection A</option>' in history.text
+    )
+
+    overview = await client.get("/", params={"period": "all"}, headers=cookie)
+
+    assert 'title="example.org/a">Collection A</td>' in overview.text
+    assert 'title="example.org/a">Collection A</span>' in overview.text
+
+    page = await client.get(
+        "/workshops/why-a-workshop",
+        params={"collection": "example.org/a", "period": "all"},
+        headers=cookie,
+    )
+
+    assert page.status_code == 200
+    assert 'title="example.org/a">Collection A</span>' in page.text

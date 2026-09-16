@@ -211,6 +211,8 @@ def variant(
     *,
     instance_id: str = "",
     collection: str | None = None,
+    collection_id: str = "",
+    collection_title: str = "",
     user: str = "",
     drop: tuple[int, ...] = (),
     keep: int | None = None,
@@ -222,6 +224,8 @@ def variant(
     many, `shift` moves every timestamp, and the rest re-identify the
     session; together they make the gapped, headless, lost, live and
     collected sessions the query tests need from the three recordings.
+    `collection_id` and `collection_title` are what an index with an
+    id makes extension 0.2.2 send beside the subscription.
     """
 
     copies: list[dict[str, Any]] = []
@@ -237,6 +241,12 @@ def variant(
 
         if collection is not None:
             copy["collection"] = collection
+
+        if collection_id:
+            copy["collection_id"] = collection_id
+
+        if collection_title:
+            copy["collection_title"] = collection_title
 
         if user:
             copy["user"] = user

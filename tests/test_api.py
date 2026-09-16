@@ -63,7 +63,11 @@ async def test_every_query_route_answers_from_the_store(
         await client.get("/api/workshops/hello-jupyterlab", headers=auth(api_token))
     ).json()
 
-    assert summary["workshop"] == {"name": "hello-jupyterlab", "collection": ""}
+    assert summary["workshop"] == {
+        "name": "hello-jupyterlab",
+        "collection": "",
+        "collection_title": "",
+    }
     assert summary["data_quality"]["considered"] == 7
     assert summary["total"]["journeys"] == 4
     assert summary["total"]["completion_rate"] == round(2 / 3, 4)
@@ -84,7 +88,11 @@ async def test_every_query_route_answers_from_the_store(
         )
     ).json()
 
-    assert named["workshop"] == {"name": "hello-jupyterlab", "collection": ""}
+    assert named["workshop"] == {
+        "name": "hello-jupyterlab",
+        "collection": "",
+        "collection_title": "",
+    }
 
     page = (
         await client.get(

@@ -61,6 +61,17 @@ def utcnow() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
 
 
+def collection_identity(event: Mapping[str, Any]) -> str:
+    """The collection an event belongs to, as the service identifies it.
+
+    A collection index that declares an `id` is known by it wherever it
+    runs; one that does not is known by where it was subscribed from,
+    which the `collection` field carries. Empty means no collection.
+    """
+
+    return str(event.get("collection_id") or event.get("collection") or "")
+
+
 def row_for(record: StoredEvent) -> dict[str, Any]:
     """The insert values for a stored event."""
 
@@ -77,7 +88,7 @@ def row_for(record: StoredEvent) -> dict[str, Any]:
         "instance_id": str(event.get("instance_id", "")),
         "name": str(event.get("name", "")),
         "source": str(event.get("source", "")),
-        "collection": str(event.get("collection", "")),
+        "collection": collection_identity(event),
         "workshop": str(event.get("workshop", "")),
         "version": str(event.get("version", "")),
         "frontend": str(event.get("frontend", "")),

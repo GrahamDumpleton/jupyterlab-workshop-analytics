@@ -583,10 +583,44 @@ def percentiles(values: Iterable[float]) -> Percentiles | None:
 
 @dataclass
 class WorkshopRef:
-    """The identity of a workshop in the data: its name and collection."""
+    """The identity of a workshop in the data: its name and collection.
+
+    `collection` is the collection's identity, the id its index declares
+    or else where it was subscribed from; `collection_title` is the
+    title the index gave, for display, empty when none was sent.
+    """
 
     name: str
     collection: str
+    collection_title: str = ""
+
+
+def workshop_ref(name: str, collection: str, loaded: Sequence[Loaded]) -> WorkshopRef:
+    """A workshop's identity with the collection title its sessions carried."""
+
+    title = next(
+        (
+            item.session.collection_title
+            for item in loaded
+            if item.session.collection_title
+        ),
+        "",
+    )
+
+    return WorkshopRef(name, collection, title)
+
+
+def collection_title_of(loaded: Sequence[Loaded]) -> str:
+    """The title some sessions carried for their collection, or empty."""
+
+    return next(
+        (
+            item.session.collection_title
+            for item in loaded
+            if item.session.collection_title
+        ),
+        "",
+    )
 
 
 @dataclass
@@ -701,7 +735,7 @@ def workshop_summary(
     kept, quality = include(loaded, filters.include_incomplete)
 
     return WorkshopSummary(
-        workshop=WorkshopRef(filters.name, collection),
+        workshop=workshop_ref(filters.name, collection, loaded),
         data_quality=quality,
         total=outcomes(kept),
         group_by=group_by,
@@ -718,6 +752,7 @@ class WorkshopListing:
 
     name: str
     collection: str
+    collection_title: str
     sources: list[str]
     versions: list[str]
     sessions: int
@@ -753,6 +788,7 @@ def list_workshops(
             WorkshopListing(
                 name=name,
                 collection=collection,
+                collection_title=collection_title_of(items),
                 sources=sorted({item.session.source for item in items}),
                 versions=sorted({item.session.version for item in items}),
                 sessions=len(items),
@@ -896,7 +932,7 @@ def funnel(
     ]
 
     return Funnel(
-        workshop=WorkshopRef(filters.name, collection),
+        workshop=workshop_ref(filters.name, collection, loaded),
         data_quality=quality,
         journeys=len(chains),
         with_pages=with_pages,
@@ -1012,7 +1048,7 @@ def page_timings(
     )
 
     return PageTimings(
-        workshop=WorkshopRef(filters.name, collection),
+        workshop=workshop_ref(filters.name, collection, loaded),
         data_quality=quality,
         sessions=len(kept),
         pages=page_timings_for(kept, rows),
@@ -1133,7 +1169,7 @@ def action_usages(
             listings.update(listed_ids(inventory))
 
     return ActionUsages(
-        workshop=WorkshopRef(filters.name, collection),
+        workshop=workshop_ref(filters.name, collection, loaded),
         data_quality=quality,
         sessions=len(kept),
         with_inventory=sum(1 for inventory in inventories if inventory is not None),
@@ -1267,7 +1303,7 @@ def coverage(
         )
 
     return Coverage(
-        workshop=WorkshopRef(filters.name, collection),
+        workshop=workshop_ref(filters.name, collection, loaded),
         data_quality=quality,
         sessions=len(kept),
         with_inventory=with_inventory,
@@ -1399,7 +1435,7 @@ def checks(
             hints[str(row.action_id)].add(str(row.session_id))
 
     return Checks(
-        workshop=WorkshopRef(filters.name, collection),
+        workshop=workshop_ref(filters.name, collection, loaded),
         data_quality=quality,
         sessions=len(kept),
         checks=check_outcomes_for(
@@ -1528,10 +1564,12 @@ def trends(
 
     if filters.name:
         collection = resolve_workshop(connection, filters.name, filters.collection)
-        workshop = WorkshopRef(filters.name, collection)
         narrowed = filters.replace(collection=collection)
 
     loaded = load_sessions(connection, narrowed, now, settings)
+
+    if filters.name:
+        workshop = workshop_ref(filters.name, narrowed.collection or "", loaded)
     kept, quality = include(loaded, filters.include_incomplete)
     groups: list[TrendGroup] = []
 
@@ -1567,6 +1605,7 @@ class SessionSummary:
     instance_id: str
     name: str
     collection: str
+    collection_title: str
     workshop: str
     source: str
     version: str
@@ -1611,6 +1650,7 @@ def session_summary(item: Loaded) -> SessionSummary:
         instance_id=session.instance_id,
         name=session.name,
         collection=session.collection,
+        collection_title=session.collection_title,
         workshop=session.workshop,
         source=session.source,
         version=session.version,
@@ -2109,6 +2149,7 @@ class CollectionListing:
     """One collection seen in the data."""
 
     collection: str
+    collection_title: str
     workshops: list[CollectionWorkshop]
     sessions: int
     instances: int
@@ -2188,6 +2229,7 @@ def list_collections(
         listings.append(
             CollectionListing(
                 collection=collection,
+                collection_title=collection_title_of(items),
                 workshops=collection_workshops(items),
                 sessions=len(items),
                 instances=len({item.session.instance_id for item in items}),
@@ -2215,6 +2257,7 @@ class CollectionProgress:
     """The funnel across a collection's workshops, by instance."""
 
     collection: str
+    collection_title: str
     data_quality: DataQuality
     instances: int
     in_order: int
@@ -2279,6 +2322,7 @@ def collection_progress(
 
     return CollectionProgress(
         collection=str(filters.collection),
+        collection_title=collection_title_of(kept),
         data_quality=quality,
         instances=len(by_instance),
         in_order=in_order,
@@ -2373,7 +2417,7 @@ def learners(
         )
 
     return Learners(
-        workshop=WorkshopRef(filters.name, collection),
+        workshop=workshop_ref(filters.name, collection, loaded),
         learners=people,
         anonymous_sessions=anonymous,
     )
@@ -2506,9 +2550,10 @@ FILTERS = {
     "labels": "a label selector: course=intro-git,term!=2025,cohort in (a,b), "
     "host notin (x); every term must match",
     "name": "the workshop's manifest name",
-    "collection": "the collection the workshop was subscribed from; empty "
-    "selects sessions opened outside any collection; omitted on a name-keyed "
-    "route means the one collection the name has, or an ambiguity error",
+    "collection": "the collection's identity: the id its index declares, or "
+    "else where it was subscribed from; empty selects sessions opened outside "
+    "any collection; omitted on a name-keyed route means the one collection "
+    "the name has, or an ambiguity error",
     "source": "where the copy came from: git:<url>@<ref>/<subdir>, "
     "archive:<url> or local:<path>",
     "version": "the workshop's manifest version",

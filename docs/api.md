@@ -54,7 +54,7 @@ all optional, all combined with "and":
 | --- | --- |
 | `labels` | A label selector: `course=intro-git,term!=2025`, `cohort in (a,b)`, `host notin (x)`. Terms are separated by commas and every term must match. |
 | `name` | The workshop's manifest name. On the name-keyed routes the name comes from the path instead. |
-| `collection` | The collection the workshop was subscribed from. Empty (`collection=`) selects sessions opened outside any collection. |
+| `collection` | The collection's identity: the `id` its index declares, or else where it was subscribed from (see workshop identity below). Empty (`collection=`) selects sessions opened outside any collection. |
 | `source`, `version`, `frontend`, `host`, `platform` | The session's fields, as the events carried them. |
 | `token_id` | The `jti` of the token the session's first batch arrived under. |
 | `user` | The learner's identity, where the deployment supplies one. |
@@ -81,6 +81,18 @@ A workshop is identified in the data by the pair of its manifest
 `intro-git`. `source` is not part of the identity: it names where a
 copy came from and differs between a local checkout and a git URL for
 the same workshop.
+
+`collection` is the collection's identity, which is the `id` its
+index declares when it has one (extension 0.2.2 sends it as
+`collection_id`) and otherwise where the collection was subscribed
+from, as the event's `collection` field carries it. The id is what
+makes a collection shipped in a Binder image and the same one in a
+codespace report as one, since both subscribe to the same file path
+and would otherwise be told apart from every other collection shipped
+the same way only by that path. Every answer that names a collection
+carries `collection_title` beside it, the index's title for display,
+empty when none was sent; the stored events keep the subscription and
+the id both.
 
 The name-keyed routes keep the name in the path because it is unique
 in nearly every deployment. A request without `collection` succeeds

@@ -62,6 +62,14 @@
       "type": "string",
       "description": "The subscribed collection that lists the workshop, as the index URL or repository it was subscribed from; empty when no collection does. Together with name it identifies a workshop across deployments."
     },
+    "collection_id": {
+      "type": "string",
+      "description": "The id the collection's index declares, the same wherever the collection runs; absent or empty when the index declares none, in which case collection alone identifies it. A sink keys on this when present."
+    },
+    "collection_title": {
+      "type": "string",
+      "description": "The title of the collection's index, for display; absent or empty when it has none."
+    },
     "seq": {
       "type": "integer",
       "minimum": 1,
@@ -71,8 +79,14 @@
       "type": "object",
       "description": "Key and value pairs from the analytics block that supplied the sink, stamped on every event for slicing reports; empty when the block declares none. At most 16, with keys of lower case letters, digits, underscore, dot and hyphen up to 63 characters and values up to 128.",
       "maxProperties": 16,
-      "propertyNames": { "pattern": "^[a-z0-9_.-]+$", "maxLength": 63 },
-      "additionalProperties": { "type": "string", "maxLength": 128 }
+      "propertyNames": {
+        "pattern": "^[a-z0-9_.-]+$",
+        "maxLength": 63
+      },
+      "additionalProperties": {
+        "type": "string",
+        "maxLength": 128
+      }
     },
     "frontend": {
       "type": "string",
@@ -103,7 +117,11 @@
     "page": {
       "type": "object",
       "description": "One page of the workshop as it was listed when the session started.",
-      "required": ["id", "path", "title"],
+      "required": [
+        "id",
+        "path",
+        "title"
+      ],
       "additionalProperties": false,
       "properties": {
         "id": {
@@ -120,7 +138,9 @@
         },
         "directives": {
           "type": "array",
-          "items": { "$ref": "#/definitions/directive" },
+          "items": {
+            "$ref": "#/definitions/directive"
+          },
           "description": "The directives on the page that can produce an event, in document order, so a consumer can tell what was never run. Sent since extension 0.2.1; absent from earlier sessions."
         }
       }
@@ -128,7 +148,11 @@
     "directive": {
       "type": "object",
       "description": "One directive of a page as the inventory lists it.",
-      "required": ["id", "type", "trigger"],
+      "required": [
+        "id",
+        "type",
+        "trigger"
+      ],
       "additionalProperties": false,
       "properties": {
         "id": {
@@ -152,11 +176,20 @@
     "tool": {
       "type": "object",
       "description": "One tool the preflight looked for.",
-      "required": ["name", "found", "satisfied", "version"],
+      "required": [
+        "name",
+        "found",
+        "satisfied",
+        "version"
+      ],
       "additionalProperties": false,
       "properties": {
-        "name": { "type": "string" },
-        "found": { "type": "boolean" },
+        "name": {
+          "type": "string"
+        },
+        "found": {
+          "type": "boolean"
+        },
         "satisfied": {
           "type": "boolean",
           "description": "Whether the tool was found at a version the manifest accepts."
@@ -171,7 +204,10 @@
       "workshop-start": {
         "type": "object",
         "description": "A workshop was opened with no recorded progress, or restarted.",
-        "required": ["page", "pages"],
+        "required": [
+          "page",
+          "pages"
+        ],
         "properties": {
           "page": {
             "type": "string",
@@ -179,7 +215,9 @@
           },
           "pages": {
             "type": "array",
-            "items": { "$ref": "#/definitions/page" },
+            "items": {
+              "$ref": "#/definitions/page"
+            },
             "description": "The visible pages in order, as the session ran with them, so a consumer can compute a funnel and show page 3 of 8 without reading the workshop."
           },
           "restarted_from": {
@@ -191,7 +229,10 @@
       "workshop-resume": {
         "type": "object",
         "description": "A workshop with recorded progress was opened again.",
-        "required": ["page", "pages"],
+        "required": [
+          "page",
+          "pages"
+        ],
         "properties": {
           "page": {
             "type": "string",
@@ -199,7 +240,9 @@
           },
           "pages": {
             "type": "array",
-            "items": { "$ref": "#/definitions/page" },
+            "items": {
+              "$ref": "#/definitions/page"
+            },
             "description": "The visible pages in order, as for workshop-start."
           },
           "resumed_from": {
@@ -211,7 +254,9 @@
       "workshop-finish": {
         "type": "object",
         "description": "Finish was pressed on the last page.",
-        "required": ["pages"],
+        "required": [
+          "pages"
+        ],
         "properties": {
           "pages": {
             "type": "integer",
@@ -223,25 +268,39 @@
       "workshop-abandon": {
         "type": "object",
         "description": "The workshop was closed or replaced before finishing. A closed tab or a stopped server sends nothing; silence after the last heartbeat is what a consumer sees then.",
-        "required": ["page"],
+        "required": [
+          "page"
+        ],
         "properties": {
-          "page": { "type": "string", "description": "Id of the page left." }
+          "page": {
+            "type": "string",
+            "description": "Id of the page left."
+          }
         }
       },
       "page-enter": {
         "type": "object",
         "description": "A page was shown.",
-        "required": ["page"],
+        "required": [
+          "page"
+        ],
         "properties": {
-          "page": { "type": "string" }
+          "page": {
+            "type": "string"
+          }
         }
       },
       "page-leave": {
         "type": "object",
         "description": "A page was left.",
-        "required": ["page", "active_ms"],
+        "required": [
+          "page",
+          "active_ms"
+        ],
         "properties": {
-          "page": { "type": "string" },
+          "page": {
+            "type": "string"
+          },
           "active_ms": {
             "type": "integer",
             "minimum": 0,
@@ -252,7 +311,10 @@
       "heartbeat": {
         "type": "object",
         "description": "The workshop is still open: sent every 60 seconds while the page is visible, every 5 minutes while it is hidden, and once immediately whenever visibility changes.",
-        "required": ["page", "hidden"],
+        "required": [
+          "page",
+          "hidden"
+        ],
         "properties": {
           "page": {
             "type": "string",
@@ -267,12 +329,19 @@
       "gate-skipped": {
         "type": "object",
         "description": "The learner moved on past unmet requirements under soft gating.",
-        "required": ["page", "requirements"],
+        "required": [
+          "page",
+          "requirements"
+        ],
         "properties": {
-          "page": { "type": "string" },
+          "page": {
+            "type": "string"
+          },
           "requirements": {
             "type": "array",
-            "items": { "type": "string" },
+            "items": {
+              "type": "string"
+            },
             "description": "The unmet requirements as kind:id strings."
           }
         }
@@ -280,9 +349,18 @@
       "action-executed": {
         "type": "object",
         "description": "An action ran, was skipped or failed.",
-        "required": ["id", "type", "status", "trigger", "downgraded"],
+        "required": [
+          "id",
+          "type",
+          "status",
+          "trigger",
+          "downgraded"
+        ],
         "properties": {
-          "id": { "type": "string", "description": "The directive id." },
+          "id": {
+            "type": "string",
+            "description": "The directive id."
+          },
           "type": {
             "type": "string",
             "description": "The directive name, such as execute."
@@ -304,9 +382,16 @@
       "verify-result": {
         "type": "object",
         "description": "A check ran.",
-        "required": ["id", "status", "attempt", "trigger"],
+        "required": [
+          "id",
+          "status",
+          "attempt",
+          "trigger"
+        ],
         "properties": {
-          "id": { "type": "string" },
+          "id": {
+            "type": "string"
+          },
           "status": {
             "type": "string",
             "description": "ok, error or skipped."
@@ -316,59 +401,96 @@
             "minimum": 1,
             "description": "How many times the check has run in this workshop, this one included."
           },
-          "trigger": { "type": "string" }
+          "trigger": {
+            "type": "string"
+          }
         }
       },
       "quiz-answered": {
         "type": "object",
         "description": "A quiz was answered.",
-        "required": ["id", "correct", "attempt"],
+        "required": [
+          "id",
+          "correct",
+          "attempt"
+        ],
         "properties": {
-          "id": { "type": "string" },
-          "correct": { "type": "boolean" },
-          "attempt": { "type": "integer", "minimum": 1 }
+          "id": {
+            "type": "string"
+          },
+          "correct": {
+            "type": "boolean"
+          },
+          "attempt": {
+            "type": "integer",
+            "minimum": 1
+          }
         }
       },
       "form-submitted": {
         "type": "object",
         "description": "A form was submitted; the field names only, never the values.",
-        "required": ["id", "fields"],
+        "required": [
+          "id",
+          "fields"
+        ],
         "properties": {
-          "id": { "type": "string" },
-          "fields": { "type": "array", "items": { "type": "string" } }
+          "id": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
         }
       },
       "hint-opened": {
         "type": "object",
         "description": "A hint was expanded.",
-        "required": ["id"],
+        "required": [
+          "id"
+        ],
         "properties": {
-          "id": { "type": "string" }
+          "id": {
+            "type": "string"
+          }
         }
       },
       "checkpoint-restored": {
         "type": "object",
         "description": "A checkpoint was restored.",
-        "required": ["name"],
+        "required": [
+          "name"
+        ],
         "properties": {
-          "name": { "type": "string" }
+          "name": {
+            "type": "string"
+          }
         }
       },
       "preflight-result": {
         "type": "object",
         "description": "The required tools were checked.",
-        "required": ["tools"],
+        "required": [
+          "tools"
+        ],
         "properties": {
           "tools": {
             "type": "array",
-            "items": { "$ref": "#/definitions/tool" }
+            "items": {
+              "$ref": "#/definitions/tool"
+            }
           }
         }
       },
       "environment-created": {
         "type": "object",
         "description": "The isolated environment was created.",
-        "required": ["kernel"],
+        "required": [
+          "kernel"
+        ],
         "properties": {
           "kernel": {
             "type": "string",

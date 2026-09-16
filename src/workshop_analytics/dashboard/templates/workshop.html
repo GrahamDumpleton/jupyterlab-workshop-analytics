@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% import "charts.html" as charts %}
 {% block title %}{{ name }}{% endblock %}
-{% block heading %}<a href="/" class="back">Workshops</a> / {{ name }}{% if collection %} <span class="collection" title="{{ collection }}">{{ collection.rsplit('/', 1)[-1] }}</span>{% endif %}{% endblock %}
+{% block heading %}<a href="/" class="back">Workshops</a> / {{ name }}{% if collection %} <span class="collection" title="{{ collection }}">{{ collection_title or collection }}</span>{% endif %}{% endblock %}
 
 {% block selector %}
     <form class="selector" method="get" action="/workshops/{{ name | urlencode }}">

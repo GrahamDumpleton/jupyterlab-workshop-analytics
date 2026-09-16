@@ -18,7 +18,7 @@ from sqlalchemy import Connection, Engine, delete, select, update
 
 from .config import Settings
 from .store.tables import events, sessions
-from .store.writes import parse_timestamp, utcnow
+from .store.writes import collection_identity, parse_timestamp, utcnow
 
 STATUSES = ("active", "away", "silent", "lost", "resumed", "finished", "abandoned")
 
@@ -50,6 +50,7 @@ class Session:
     name: str = ""
     source: str = ""
     collection: str = ""
+    collection_title: str = ""
     workshop: str = ""
     version: str = ""
     frontend: str = ""
@@ -116,7 +117,8 @@ def fold(session: Session, event: dict[str, Any], labels: dict[str, str]) -> Non
         session.instance_id = str(event.get("instance_id", ""))
         session.name = str(event.get("name", ""))
         session.source = str(event.get("source", ""))
-        session.collection = str(event.get("collection", ""))
+        session.collection = collection_identity(event)
+        session.collection_title = str(event.get("collection_title", ""))
         session.workshop = str(event.get("workshop", ""))
         session.version = str(event.get("version", ""))
         session.frontend = str(event.get("frontend", ""))
@@ -480,6 +482,7 @@ def live_row(row: Any, now: datetime, settings: Settings) -> dict[str, Any]:
         "instance_id": row.instance_id,
         "name": row.name,
         "collection": row.collection,
+        "collection_title": row.collection_title,
         "workshop": row.workshop,
         "version": row.version,
         "frontend": row.frontend,

@@ -350,7 +350,7 @@ class Choices:
     """The values the history form offers, the ones that occur in the data."""
 
     names: list[str]
-    collections: list[str]
+    collections: list[tuple[str, str]]
     hosts: list[str]
     frontends: list[str]
     statuses: tuple[str, ...]
@@ -408,7 +408,17 @@ async def history(request: Request) -> Response:
             workshops = queries.list_workshops(connection, Filters(), now, settings)
             choices = Choices(
                 names=sorted({listing.name for listing in workshops}),
-                collections=list(description.collections),
+                collections=sorted(
+                    {
+                        (
+                            listing.collection,
+                            listing.collection_title or listing.collection,
+                        )
+                        for listing in workshops
+                        if listing.collection
+                    },
+                    key=lambda pair: pair[1],
+                ),
                 hosts=list(description.data["hosts"]),
                 frontends=list(description.data["frontends"]),
                 statuses=STATUSES,
@@ -632,6 +642,7 @@ async def workshop_page(request: Request, name: str) -> Response:
         period=period,
         name=name,
         collection=report.summary.workshop.collection,
+        collection_title=report.summary.workshop.collection_title,
         summary=report.summary,
         trends=report.trends,
         chart=views.outcome_chart(report.trends, period, now),

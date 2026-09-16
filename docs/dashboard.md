@@ -92,7 +92,11 @@ Then, for each collection seen, its funnel: the workshops in the
 order learners took them, how many learners reached each, finished
 it, and stopped there, with how many took them in order and how many
 finished every one. A learner here is an instance, one running
-JupyterLab, since a collection is worked through in one.
+JupyterLab, since a collection is worked through in one. A collection
+is shown by the title its index gave, with its identity on hover; a
+collection whose index declares no `id` is identified by where it was
+subscribed from, so two deployments shipping different collections at
+the same file path would read as one ([API](api.md#workshop-identity)).
 
 ## The live view
 
