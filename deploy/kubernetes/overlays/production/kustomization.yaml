@@ -13,7 +13,7 @@ resources:
 
 images:
   - name: ghcr.io/grahamdumpleton/jupyterlab-workshop-analytics
-    newTag: 0.2.0
+    newTag: 0.3.0
 
 secretGenerator:
   - name: workshop-analytics-key
