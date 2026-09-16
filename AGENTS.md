@@ -111,7 +111,11 @@ and `just rebuild` wrap the CLI.
 
 - The vendored `events.schema.json` is copied from the extension at a
   release and never edited here; `SCHEMA_VERSION` in
-  `schema/__init__.py` records which.
+  `schema/__init__.py` records which. The copy is strict where the
+  contract is; the service is not. A field the copy does not know is
+  kept in the stored event and warned about once, never rejected, so
+  an additive change to the contract lands here, and is rolled out,
+  before the extension that sends it is released.
 
 ## Git
 

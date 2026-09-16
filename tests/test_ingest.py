@@ -431,3 +431,58 @@ async def test_a_deployment_can_allow_origins_for_every_token(
     app.state.engine.dispose()
 
     assert preflight.status_code == 204
+
+
+async def test_an_unknown_field_is_stored_whole_and_warned_once(
+    traced_app: Any, traced_client: httpx.AsyncClient, ingest_token: str
+) -> None:
+    """A field the vendored schema does not know rides along.
+
+    The schema is refreshed at an extension release, and the extension
+    that sends a new field may reach a deployment first. The event is
+    stored as it arrived, so a later `rebuild` under the refreshed
+    schema reads the field, and the log says once what was seen.
+    """
+
+    good = load_fixture("why-a-workshop")
+    start = next(e for e in good if e["kind"] == "workshop-start")
+    inventory = [{"id": "x", "type": "execute", "trigger": "click"}]
+    newer = dict(start)
+    newer["pages"] = [{**page, "directives": inventory} for page in start["pages"]]
+    unknown_kind = {
+        **good[1],
+        "kind": "something-new",
+        "seq": len(good) + 1,
+        "extra": True,
+    }
+    batch = [newer if e is start else e for e in good] + [unknown_kind]
+    logs = wrapture.capture_logs("workshop_analytics.ingest")
+
+    with wrapture.timeline(logs):
+        first = await traced_client.post(
+            "/events", content=ndjson(batch), headers=bearer(ingest_token)
+        )
+        second = await traced_client.post(
+            "/events", content=ndjson(batch), headers=bearer(ingest_token)
+        )
+
+        assert first.json()["stored"] == len(batch)
+        assert first.json()["rejected"] == 0
+        assert second.json()["duplicates"] == len(batch)
+
+        warning = logs.events.at_level("WARNING").assert_once().first
+
+        assert "pages[].directives" in warning.data["message"]
+
+    # Both events are stored as they arrived, unknown parts included.
+    with traced_app.state.engine.connect() as connection:
+        rows = connection.execute(
+            select(events.c.kind, events.c.payload).where(
+                events.c.session_id == start["session_id"]
+            )
+        ).all()
+
+    payloads = {kind: payload for kind, payload in rows}
+
+    assert payloads["workshop-start"]["pages"][0]["directives"] == inventory
+    assert payloads["something-new"]["extra"] is True

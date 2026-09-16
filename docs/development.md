@@ -167,3 +167,17 @@ checkout, set the version, and run the suite: the fixtures validate
 against the schema and every kind's fields are checked, so a change
 in the contract shows up here as failing tests rather than as
 rejected batches in production.
+
+The copy is strict where the contract is, and the service is not. A
+page entry or a tool entry lists its fields and forbids others, which
+the extension's own tests rely on; here a field the copy does not know
+is never a reason to reject an event. The validator reports it as
+unknown, the event is stored as it arrived, and the pipeline logs one
+warning per field name for the life of the process, so an extension
+released with an additive field reaches a deployment that has not yet
+refreshed its copy without costing any session its head, and a
+`rebuild` after the refresh reads what was kept. An event of a kind the
+copy does not know is accepted on its base fields the same way. The
+practice this sets: an additive change to the contract lands in the
+service, and is rolled out, before the extension that sends it is
+released.

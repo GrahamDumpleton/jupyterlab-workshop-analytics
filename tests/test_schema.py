@@ -84,3 +84,42 @@ def test_the_vendored_schema_carries_its_id() -> None:
 
     assert schema["$id"].endswith("/events.schema.json")
     assert schema["$schema"].startswith("http://json-schema.org/draft-07/")
+
+
+def test_an_unknown_field_is_kept_and_named(validator: EventValidator) -> None:
+    """A closed object's extra field is reported, never a problem.
+
+    A newer extension may send a field this copy of the schema does not
+    list; the event stays valid and the field is named by its path so
+    the pipeline can say what it saw.
+    """
+
+    fixture = load_fixture("why-a-workshop")
+    start = next(e for e in fixture if e["kind"] == "workshop-start")
+    event = dict(start)
+    event["pages"] = [
+        {**page, "directives": [{"id": "x", "type": "execute", "trigger": "click"}]}
+        for page in start["pages"]
+    ]
+
+    verdict = validator.check(event)
+
+    assert verdict.problems == []
+    assert verdict.unknown == ["pages[].directives"]
+    assert validator.problems(event) == []
+
+    # A real problem beside an unknown field is still a problem.
+    broken = {**event, "page": 7}
+    verdict = validator.check(broken)
+
+    assert verdict.problems and "page" in verdict.problems[0]
+    assert verdict.unknown == ["pages[].directives"]
+
+
+def test_unknown_fields_are_counted_and_the_first_sighting_is_told_apart() -> None:
+    validator = EventValidator()
+
+    assert validator.notice("pages[].directives") is True
+    assert validator.notice("pages[].directives") is False
+    assert validator.notice("tools[].licence") is True
+    assert validator.unknown_seen == {"pages[].directives": 2, "tools[].licence": 1}

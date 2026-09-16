@@ -96,7 +96,10 @@ The label rules are the extension's: keys of lower case letters,
 digits, underscore, dot and hyphen up to 63 characters, values up to
 128, at most 16 per block. A token that breaks them cannot be issued;
 an event that breaks them is rejected on its own, the rest of its
-batch still stored.
+batch still stored. Rejection is for an event that breaks the
+contract, never for one that extends it: a field the service's copy of
+the schema does not know is kept with the event and noted in the log,
+see [the vendored schema](development.md#the-vendored-schema).
 
 ## Public and private tokens
 

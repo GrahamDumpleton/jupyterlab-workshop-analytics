@@ -26,7 +26,7 @@ from .config import Settings
 from .labels import merge_labels
 from .live import Broadcaster
 from .projection import apply_events, live_row
-from .schema import EventValidator
+from .schema import SCHEMA_VERSION, EventValidator
 from .store.writes import (
     StoredEvent,
     event_hash,
@@ -251,15 +251,29 @@ class Ingest:
 
                 exported = item if isinstance(item, Exported) else None
                 candidate = exported.event if exported is not None else item
-                problems = self.validator.problems(candidate)
+                verdict = self.validator.check(candidate)
 
-                if problems:
+                if verdict.problems:
+                    problem = verdict.problems[0]
+
                     result.rejected += 1
-                    result.problems.append(f"event {index + 1}: {problems[0]}")
+                    result.problems.append(f"event {index + 1}: {problem}")
 
-                    log.warning("rejected event %d: %s", index + 1, problems[0])
+                    log.warning("rejected event %d: %s", index + 1, problem)
 
                     continue
+
+                # A field the vendored schema does not know is kept with
+                # the event, since a newer extension may send one before
+                # the schema here is refreshed; say so once per field.
+                for name in verdict.unknown:
+                    if self.validator.notice(name):
+                        log.warning(
+                            "keeping field %s, which schema %s does not know, "
+                            "on the events that carry it",
+                            name,
+                            SCHEMA_VERSION,
+                        )
 
                 # An exported event keeps the labels it was stored with,
                 # this import's own trusted labels on top; a plain event
