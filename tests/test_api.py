@@ -25,6 +25,7 @@ ROUTES = [
     "/api/workshops/hello-jupyterlab/funnel",
     "/api/workshops/hello-jupyterlab/pages",
     "/api/workshops/hello-jupyterlab/actions",
+    "/api/workshops/hello-jupyterlab/coverage",
     "/api/workshops/hello-jupyterlab/checks",
     "/api/workshops/hello-jupyterlab/trends",
     "/api/workshops/hello-jupyterlab/sessions",
@@ -89,6 +90,21 @@ async def test_every_query_route_answers_from_the_store(
 
     assert detail["chain"] == ["hello-part1", "hello-part2"]
     assert detail["timeline"][0]["kind"] == "workshop-resume"
+    assert detail["pages"][0]["directives"][0]["id"] == "01-welcome-1"
+
+    report = (
+        await client.get(
+            "/api/workshops/hello-jupyterlab/coverage", headers=auth(api_token)
+        )
+    ).json()
+
+    assert report["never_run"] == ["01-welcome-3", "01-welcome-5", "05-variables-2"]
+    assert (
+        next(d for d in report["pages"][0]["directives"] if d["id"] == "01-welcome-3")[
+            "ran"
+        ]
+        == 0
+    )
 
 
 async def test_the_common_filters_reach_every_route(

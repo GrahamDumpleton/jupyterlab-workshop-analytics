@@ -28,6 +28,18 @@ RECENT_KINDS = ("action-executed", "verify-result", "quiz-answered")
 
 RECENT_LIMIT = 5
 
+# The kinds that name a directive by its id, which the coverage of a
+# session's inventory is read from.
+DIRECTIVE_KINDS = (
+    "action-executed",
+    "verify-result",
+    "quiz-answered",
+    "form-submitted",
+    "hint-opened",
+)
+
+DIRECTIVE_FIELDS = ("id", "type", "trigger")
+
 
 @dataclass
 class Session:
@@ -53,11 +65,12 @@ class Session:
     last_heartbeat: datetime | None = None
     last_hidden: bool = False
     current_page: str = ""
-    pages: list[dict[str, str]] | None = None
+    pages: list[dict[str, Any]] | None = None
     pages_entered: list[str] | None = None
     pages_left: list[str] | None = None
     pages_done: int = 0
     gates_skipped: int = 0
+    directives_run: list[str] | None = None
     finished_at: datetime | None = None
     abandoned_at: datetime | None = None
     resumed_from: str = ""
@@ -75,6 +88,7 @@ class Session:
         self.pages = list(self.pages or [])
         self.pages_entered = list(self.pages_entered or [])
         self.pages_left = list(self.pages_left or [])
+        self.directives_run = list(self.directives_run or [])
         self.recent = list(self.recent or [])
         self.gaps = list(self.gaps or [])
 
@@ -127,13 +141,7 @@ def fold(session: Session, event: dict[str, Any], labels: dict[str, str]) -> Non
 
         if isinstance(pages, list):
             session.pages = [
-                {
-                    "id": str(entry.get("id", "")),
-                    "path": str(entry.get("path", "")),
-                    "title": str(entry.get("title", "")),
-                }
-                for entry in pages
-                if isinstance(entry, dict)
+                page_entry(entry) for entry in pages if isinstance(entry, dict)
             ]
 
         session.current_page = page
@@ -181,6 +189,16 @@ def fold(session: Session, event: dict[str, Any], labels: dict[str, str]) -> Non
     elif kind == "gate-skipped":
         session.gates_skipped += 1
 
+    # The directives the session ran, by id, against which its inventory
+    # says what was never run.
+    if kind in DIRECTIVE_KINDS:
+        assert session.directives_run is not None
+
+        directive = str(event.get("id", ""))
+
+        if directive and directive not in session.directives_run:
+            session.directives_run.append(directive)
+
     if kind in RECENT_KINDS:
         assert session.recent is not None
 
@@ -197,6 +215,44 @@ def fold(session: Session, event: dict[str, Any], labels: dict[str, str]) -> Non
 
         session.recent.append(entry)
         del session.recent[:-RECENT_LIMIT]
+
+
+def page_entry(entry: dict[str, Any]) -> dict[str, Any]:
+    """A page of the page list as the session row keeps it.
+
+    The id, path and title always; the directive inventory when the
+    extension sent one (0.2.1 and later), each directive reduced to its
+    id, type, trigger and the conditional flag. A page without the key
+    is one whose session carried no inventory, which the reports say
+    rather than reading as nothing to run.
+    """
+
+    page: dict[str, Any] = {
+        "id": str(entry.get("id", "")),
+        "path": str(entry.get("path", "")),
+        "title": str(entry.get("title", "")),
+    }
+    directives = entry.get("directives")
+
+    if isinstance(directives, list):
+        listed: list[dict[str, Any]] = []
+
+        for item in directives:
+            if not isinstance(item, dict) or not item.get("id"):
+                continue
+
+            directive: dict[str, Any] = {
+                name: str(item.get(name, "")) for name in DIRECTIVE_FIELDS
+            }
+
+            if item.get("conditional"):
+                directive["conditional"] = True
+
+            listed.append(directive)
+
+        page["directives"] = listed
+
+    return page
 
 
 def completeness(

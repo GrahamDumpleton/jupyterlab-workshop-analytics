@@ -97,15 +97,12 @@ def test_an_unknown_field_is_kept_and_named(validator: EventValidator) -> None:
     fixture = load_fixture("why-a-workshop")
     start = next(e for e in fixture if e["kind"] == "workshop-start")
     event = dict(start)
-    event["pages"] = [
-        {**page, "directives": [{"id": "x", "type": "execute", "trigger": "click"}]}
-        for page in start["pages"]
-    ]
+    event["pages"] = [{**page, "colour": "red"} for page in start["pages"]]
 
     verdict = validator.check(event)
 
     assert verdict.problems == []
-    assert verdict.unknown == ["pages[].directives"]
+    assert verdict.unknown == ["pages[].colour"]
     assert validator.problems(event) == []
 
     # A real problem beside an unknown field is still a problem.
@@ -113,13 +110,13 @@ def test_an_unknown_field_is_kept_and_named(validator: EventValidator) -> None:
     verdict = validator.check(broken)
 
     assert verdict.problems and "page" in verdict.problems[0]
-    assert verdict.unknown == ["pages[].directives"]
+    assert verdict.unknown == ["pages[].colour"]
 
 
 def test_unknown_fields_are_counted_and_the_first_sighting_is_told_apart() -> None:
     validator = EventValidator()
 
-    assert validator.notice("pages[].directives") is True
-    assert validator.notice("pages[].directives") is False
+    assert validator.notice("pages[].colour") is True
+    assert validator.notice("pages[].colour") is False
     assert validator.notice("tools[].licence") is True
-    assert validator.unknown_seen == {"pages[].directives": 2, "tools[].licence": 1}
+    assert validator.unknown_seen == {"pages[].colour": 2, "tools[].licence": 1}

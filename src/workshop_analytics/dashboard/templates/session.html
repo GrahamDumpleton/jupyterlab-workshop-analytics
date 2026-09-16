@@ -45,7 +45,7 @@
     <section class="card">
       <h2>Pages</h2>
       <table>
-        <thead><tr><th>#</th><th>Page</th><th>Entered</th><th>Left</th><th>Active</th><th>Entries</th></tr></thead>
+        <thead><tr><th>#</th><th>Page</th><th>Entered</th><th>Left</th><th>Active</th><th>Entries</th><th>Directives</th></tr></thead>
         <tbody>
         {% for visit in detail.pages %}
           <tr class="{% if visit.page.id == s.current_page %}current{% endif %}">
@@ -55,6 +55,14 @@
             <td>{{ "yes" if visit.left else "" }}</td>
             <td>{{ visit.active_seconds | duration if visit.active_seconds else "" }}</td>
             <td>{{ visit.entries or "" }}</td>
+            {% if visit.directives is none %}
+            <td class="muted" title="The session carried no directive inventory; extension 0.2.1 and later send one.">unknown</td>
+            {% elif not visit.directives %}
+            <td class="muted">none</td>
+            {% else %}
+            {% set never = visit.directives | rejectattr("run") | list %}
+            <td title="{% if never %}Never run: {% for d in never %}{{ d.id }} ({{ d.type }}, {{ d.trigger }}{% if d.conditional %}, conditional{% endif %}){% if not loop.last %}; {% endif %}{% endfor %}{% else %}Every directive ran{% endif %}">{{ visit.directives | length - never | length }} of {{ visit.directives | length }} run</td>
+            {% endif %}
           </tr>
         {% endfor %}
         </tbody>

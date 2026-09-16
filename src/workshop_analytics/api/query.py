@@ -27,6 +27,7 @@ from ..queries import (
     Checks,
     CollectionListing,
     CollectionProgress,
+    Coverage,
     Description,
     EventFilters,
     EventPage,
@@ -273,6 +274,20 @@ async def actions(request: Request, name: str, filters: CommonFilters) -> Action
 
     return await answer(
         request, lambda c: queries.action_usages(c, narrowed, utcnow(), settings)
+    )
+
+
+@router.get("/workshops/{name}/coverage", summary="What nobody ran, page by page")
+async def coverage(request: Request, name: str, filters: CommonFilters) -> Coverage:
+    """Per page and directive, the sessions whose page list named it and
+    the sessions that ran it, from the directive inventory extension
+    0.2.1 sends; sessions without one are counted and otherwise silent."""
+
+    settings = settings_of(request)
+    narrowed = named(filters, name)
+
+    return await answer(
+        request, lambda c: queries.coverage(c, narrowed, utcnow(), settings)
     )
 
 

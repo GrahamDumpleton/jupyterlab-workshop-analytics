@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import httpx
 import pytest
 
 from workshop_analytics.app import DASHBOARD_DIR
 from workshop_analytics.config import SESSION_COOKIE
 
-from .conftest import Seeded
+from .conftest import Seeded, without_inventory
 
 
 def with_cookie(value: str) -> dict[str, str]:
@@ -135,7 +137,7 @@ async def test_the_pages_link_their_assets_by_version(
 
 
 async def test_the_session_page_shows_the_timeline_to_a_signed_in_viewer(
-    client: httpx.AsyncClient, dashboard_token: str, seeded: Seeded
+    app: Any, client: httpx.AsyncClient, dashboard_token: str, seeded: Seeded
 ) -> None:
     signed_out = await client.get(f"/sessions/{seeded.gapped}")
 
@@ -157,6 +159,26 @@ async def test_the_session_page_shows_the_timeline_to_a_signed_in_viewer(
 
     assert f'href="/sessions/{seeded.part1}"' in chained.text
     assert "workshop-resume" in chained.text
+
+    # The page table says how many of each page's directives ran, with
+    # the ones never run named, and unknown for a session whose
+    # extension sent no inventory.
+    complete = await client.get(
+        f"/sessions/{seeded.complete}", headers=with_cookie(cookie)
+    )
+
+    assert "5 of 7 run" in complete.text
+    assert "Never run: 01-welcome-3 (" in complete.text
+    assert "unknown" not in complete.text
+
+    app.state.ingest.accept(
+        without_inventory(seeded.hello, "hello-older", instance_id="inst-old"), None
+    )
+
+    older = await client.get("/sessions/hello-older", headers=with_cookie(cookie))
+
+    # Seven listed pages and the one entered outside the list.
+    assert older.text.count(">unknown<") == 8
 
     missing = await client.get("/sessions/nothing", headers=with_cookie(cookie))
 

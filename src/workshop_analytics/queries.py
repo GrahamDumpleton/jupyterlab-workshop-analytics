@@ -18,7 +18,7 @@ from __future__ import annotations
 import base64
 import statistics
 from collections import Counter, defaultdict
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -316,6 +316,7 @@ class DataQuality:
     complete: int
     share_complete: float
     include_incomplete: bool
+    with_inventory: int
 
 
 def include(
@@ -349,9 +350,52 @@ def include(
         complete=complete,
         share_complete=round(complete / len(loaded), 4) if loaded else 0.0,
         include_incomplete=include_incomplete,
+        with_inventory=sum(1 for item in kept if inventory_of(item.session)),
     )
 
     return kept, quality
+
+
+# The directive inventory
+
+
+def inventory_of(session: Session) -> dict[str, list[dict[str, Any]]] | None:
+    """Per page id, the directives the session's page list named.
+
+    None when the session carried no inventory, which every session
+    from an extension before 0.2.1 is, so a report says unknown rather
+    than nothing to run. A page whose entry lists no directive maps to
+    an empty list.
+    """
+
+    pages = session.pages or []
+
+    if not any("directives" in page for page in pages):
+        return None
+
+    return {
+        str(page.get("id", "")): list(page.get("directives") or []) for page in pages
+    }
+
+
+def listed_ids(inventory: dict[str, list[dict[str, Any]]]) -> set[str]:
+    """Every directive id an inventory names."""
+
+    return {
+        str(directive.get("id", ""))
+        for directives in inventory.values()
+        for directive in directives
+        if directive.get("id")
+    }
+
+
+def coverage_share(listed: set[str], run: Iterable[str]) -> float | None:
+    """The share of the listed directives that were run; None with none listed."""
+
+    if not listed:
+        return None
+
+    return round(len(listed & set(run)) / len(listed), 4)
 
 
 # Journeys: chains of sessions linked by resumes
@@ -410,6 +454,47 @@ class Journey:
         """How many times a session in the chain moved past an unmet gate."""
 
         return sum(int(segment.session.gates_skipped or 0) for segment in self.segments)
+
+    @property
+    def inventory(self) -> dict[str, list[dict[str, Any]]] | None:
+        """The fullest inventory any segment carried, or None without one."""
+
+        best: dict[str, list[dict[str, Any]]] | None = None
+
+        for segment in self.segments:
+            listed = inventory_of(segment.session)
+
+            if listed is not None and (
+                best is None or len(listed_ids(listed)) > len(listed_ids(best))
+            ):
+                best = listed
+
+        return best
+
+    @property
+    def directives_run(self) -> set[str]:
+        """The directive ids run anywhere in the chain."""
+
+        run: set[str] = set()
+
+        for segment in self.segments:
+            run.update(segment.session.directives_run or [])
+
+        return run
+
+    @property
+    def coverage(self) -> float | None:
+        """The share of the listed directives the chain ran.
+
+        None when no segment carried an inventory.
+        """
+
+        inventory = self.inventory
+
+        if inventory is None:
+            return None
+
+        return coverage_share(listed_ids(inventory), self.directives_run)
 
 
 def journeys(loaded: Sequence[Loaded]) -> list[Journey]:
@@ -521,6 +606,8 @@ class Outcomes:
     completion_rate: float | None
     duration_seconds: Percentiles | None
     pages_done: Percentiles | None
+    with_inventory: int
+    coverage: Percentiles | None
 
 
 def outcomes(loaded: Sequence[Loaded]) -> Outcomes:
@@ -545,6 +632,10 @@ def outcomes(loaded: Sequence[Loaded]) -> Outcomes:
         completion_rate=round(counts["finished"] / settled, 4) if settled else None,
         duration_seconds=percentiles(chain.duration_seconds for chain in finished),
         pages_done=percentiles(float(chain.pages_done) for chain in chains),
+        with_inventory=sum(1 for chain in chains if chain.inventory is not None),
+        coverage=percentiles(
+            share for share in (chain.coverage for chain in chains) if share is not None
+        ),
     )
 
 
@@ -945,6 +1036,7 @@ class ActionUsage:
     error: int
     skipped: int
     downgraded: int
+    listed: int
 
 
 @dataclass
@@ -954,14 +1046,21 @@ class ActionUsages:
     workshop: WorkshopRef
     data_quality: DataQuality
     sessions: int
+    with_inventory: int
     runs: int
     clicked: int
     sessions_clicking: int
     actions: list[ActionUsage]
 
 
-def action_usages_for(rows: Sequence[Any]) -> list[ActionUsage]:
-    """The per-action usage from some action-executed rows."""
+def action_usages_for(
+    rows: Sequence[Any], listings: Mapping[str, int] | None = None
+) -> list[ActionUsage]:
+    """The per-action usage from some action-executed rows.
+
+    `listings` says, per action id, how many sessions' inventories
+    named it, so the runs can be read against the opportunities.
+    """
 
     by_id: dict[str, list[Any]] = defaultdict(list)
 
@@ -988,6 +1087,7 @@ def action_usages_for(rows: Sequence[Any]) -> list[ActionUsage]:
                 error=statuses["error"],
                 skipped=statuses["skipped"],
                 downgraded=sum(1 for row in group if row.payload.get("downgraded")),
+                listed=int((listings or {}).get(action_id, 0)),
             )
         )
 
@@ -1024,14 +1124,157 @@ def action_usages(
     )
     clicks = [row for row in rows if row.payload.get("trigger") == "click"]
 
+    # How many sessions had each action to run, from the inventories.
+    listings: Counter[str] = Counter()
+    inventories = [inventory_of(item.session) for item in kept]
+
+    for inventory in inventories:
+        if inventory is not None:
+            listings.update(listed_ids(inventory))
+
     return ActionUsages(
         workshop=WorkshopRef(filters.name, collection),
         data_quality=quality,
         sessions=len(kept),
+        with_inventory=sum(1 for inventory in inventories if inventory is not None),
         runs=len(rows),
         clicked=len(clicks),
         sessions_clicking=len({str(row.session_id) for row in clicks}),
-        actions=action_usages_for(rows),
+        actions=action_usages_for(rows, listings),
+    )
+
+
+# Coverage: what nobody ran
+
+
+@dataclass
+class DirectiveCoverage:
+    """One directive of a page: the sessions that had it, and those that ran it."""
+
+    id: str
+    type: str
+    trigger: str
+    conditional: bool
+    listed: int
+    ran: int
+    share: float | None
+
+
+@dataclass
+class PageCoverage:
+    """The directives of one page and how many sessions ran each."""
+
+    page: PageRef
+    position: int
+    listed: int
+    directives: list[DirectiveCoverage]
+
+
+@dataclass
+class Coverage:
+    """What was there to run against what was run, page by page.
+
+    Only sessions whose page list carried a directive inventory take
+    part; the rest are counted in `sessions` and the data quality note
+    and otherwise say nothing. A directive `trigger` of `click` that
+    nobody ran is a button nobody pressed; `auto` is an automatic run
+    that never fired; `cascade` one whose predecessor never succeeded;
+    `trigger` a check nothing set off; and a `conditional` directive
+    may never have been shown.
+    """
+
+    workshop: WorkshopRef
+    data_quality: DataQuality
+    sessions: int
+    with_inventory: int
+    directives: int
+    coverage: Percentiles | None
+    never_run: list[str]
+    pages: list[PageCoverage]
+
+
+def coverage(
+    connection: Connection, filters: Filters, now: datetime, settings: Settings
+) -> Coverage:
+    """Per page and directive, the sessions that listed it and those that ran it."""
+
+    collection = resolve_workshop(connection, filters.name, filters.collection)
+    loaded = load_sessions(
+        connection, filters.replace(collection=collection), now, settings
+    )
+    kept, quality = include(loaded, filters.include_incomplete)
+    order = page_order(kept)
+    pages_listed: Counter[str] = Counter()
+    listed: Counter[tuple[str, str]] = Counter()
+    ran: Counter[tuple[str, str]] = Counter()
+    seen: dict[tuple[str, str], dict[str, Any]] = {}
+    shares: list[float] = []
+    with_inventory = 0
+
+    # Each session with an inventory counts once per directive it
+    # listed, and once more for each it ran; the page a directive is
+    # reported under is the one whose entry listed it.
+    for item in kept:
+        inventory = inventory_of(item.session)
+
+        if inventory is None:
+            continue
+
+        with_inventory += 1
+        run = set(item.session.directives_run or [])
+
+        for page_id, directives in inventory.items():
+            pages_listed[page_id] += 1
+
+            for directive in directives:
+                key = (page_id, str(directive.get("id", "")))
+
+                listed[key] += 1
+                seen[key] = directive
+
+                if key[1] in run:
+                    ran[key] += 1
+
+        share = coverage_share(listed_ids(inventory), run)
+
+        if share is not None:
+            shares.append(share)
+
+    pages: list[PageCoverage] = []
+
+    for index, page in enumerate(order):
+        entries = [
+            DirectiveCoverage(
+                id=key[1],
+                type=str(seen[key].get("type", "")),
+                trigger=str(seen[key].get("trigger", "")),
+                conditional=bool(seen[key].get("conditional")),
+                listed=listed[key],
+                ran=ran[key],
+                share=round(ran[key] / listed[key], 4) if listed[key] else None,
+            )
+            for key in seen
+            if key[0] == page.id
+        ]
+
+        pages.append(
+            PageCoverage(
+                page=page,
+                position=index + 1,
+                listed=pages_listed[page.id],
+                directives=entries,
+            )
+        )
+
+    return Coverage(
+        workshop=WorkshopRef(filters.name, collection),
+        data_quality=quality,
+        sessions=len(kept),
+        with_inventory=with_inventory,
+        directives=len(seen),
+        coverage=percentiles(shares),
+        never_run=[key[1] for key in seen if ran[key] == 0],
+        pages=pages,
     )
 
 
@@ -1330,6 +1573,7 @@ class SessionSummary:
     page_count: int
     pages_done: int
     gates_skipped: int
+    coverage: float | None
     events_received: int
     events_expected: int
     gaps: list[list[int]]
@@ -1345,6 +1589,7 @@ def session_summary(item: Loaded) -> SessionSummary:
     session = item.session
     ids = [str(page.get("id", "")) for page in session.pages or []]
     position = ids.index(session.current_page) + 1 if session.current_page in ids else 0
+    inventory = inventory_of(session)
 
     return SessionSummary(
         session_id=session.session_id,
@@ -1372,6 +1617,9 @@ def session_summary(item: Loaded) -> SessionSummary:
         page_count=len(ids),
         pages_done=int(session.pages_done or 0),
         gates_skipped=int(session.gates_skipped or 0),
+        coverage=None
+        if inventory is None
+        else coverage_share(listed_ids(inventory), session.directives_run or []),
         events_received=int(session.events_received or 0),
         events_expected=int(session.events_expected or 0),
         gaps=[list(gap) for gap in session.gaps or []],
@@ -1453,8 +1701,23 @@ def list_sessions(
 
 
 @dataclass
+class DirectiveVisit:
+    """One directive of a page and whether the session ran it."""
+
+    id: str
+    type: str
+    trigger: str
+    conditional: bool
+    run: bool
+
+
+@dataclass
 class PageVisit:
-    """One page of a session's workshop and what the session did on it."""
+    """One page of a session's workshop and what the session did on it.
+
+    `directives` is the page's inventory with what was run marked, or
+    None when the session carried no inventory.
+    """
 
     page: PageRef
     position: int
@@ -1462,6 +1725,7 @@ class PageVisit:
     left: bool
     active_seconds: float
     entries: int
+    directives: list[DirectiveVisit] | None
 
 
 @dataclass
@@ -1608,6 +1872,8 @@ def session_detail(
             known.add(page)
             order.append(PageRef(page, page, ""))
 
+    inventory = inventory_of(session)
+    run = set(session.directives_run or [])
     visits = [
         PageVisit(
             page=page,
@@ -1616,6 +1882,18 @@ def session_detail(
             left=page.id in (session.pages_left or []),
             active_seconds=round(active[page.id], 3),
             entries=entries[page.id],
+            directives=None
+            if inventory is None
+            else [
+                DirectiveVisit(
+                    id=str(directive.get("id", "")),
+                    type=str(directive.get("type", "")),
+                    trigger=str(directive.get("trigger", "")),
+                    conditional=bool(directive.get("conditional")),
+                    run=str(directive.get("id", "")) in run,
+                )
+                for directive in inventory.get(page.id, [])
+            ],
         )
         for index, page in enumerate(order)
     ]
@@ -2154,6 +2432,20 @@ METRICS = {
     "stop and a resume is not counted; percentiles over the finished journeys",
     "pages_done": "the pages a session left, which is how many it worked "
     "through; a journey's is the distinct pages left across its sessions",
+    "coverage": "of a session whose page list carried a directive inventory "
+    "(extension 0.2.1 and later), the share of the directives listed that its "
+    "events report running, matched by id; a journey's is what its sessions "
+    "ran together over the fullest inventory any of them carried; percentiles "
+    "over the sessions with an inventory in the coverage report and over such "
+    "journeys in the outcomes, never counting a session without one as zero",
+    "coverage.listed": "sessions whose inventory named the directive on that "
+    "page; ran is those whose events report it ran, and share is ran over "
+    "listed",
+    "coverage.never_run": "directives some session listed and no session ran; "
+    "read with the trigger, since a button nobody pressed, an automatic run "
+    "that never fired, a cascade whose predecessor never succeeded and a check "
+    "nothing set off are different findings, and a conditional directive may "
+    "never have been shown",
     "funnel.entered": "journeys that entered the page at least once",
     "funnel.left": "journeys that left the page at least once",
     "funnel.stopped": "journeys not finished whose furthest page in the list is "
@@ -2162,6 +2454,8 @@ METRICS = {
     "so a page entered twice contributes twice",
     "actions.by_trigger": "runs by what ran the action: click, role, auto, "
     "cascade or trigger; clicked counts the click runs",
+    "actions.listed": "sessions whose inventory named the action, so runs can "
+    "be read against opportunities; sessions without an inventory add nothing",
     "checks.pass_rate": "sessions that passed the check at least once over "
     "sessions that ran it; a quiz passes when answered correctly",
     "checks.attempts_to_pass": "the attempt number of each session's first "
@@ -2188,6 +2482,9 @@ DATA_QUALITY = {
     "share_complete": "complete over considered",
     "include_incomplete": "true when the caller asked for the excluded sessions "
     "to be counted; the session and event queries always return everything",
+    "with_inventory": "included sessions whose page list carried a directive "
+    "inventory, which the extension sends from 0.2.1; coverage is known for "
+    "these alone and unknown, never zero, for the rest",
 }
 
 FILTERS = {

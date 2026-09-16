@@ -22,7 +22,7 @@ from workshop_analytics.queries import (
 from workshop_analytics.selectors import parse_selector
 from workshop_analytics.store.writes import utcnow
 
-from .conftest import COLLECTION, Seeded, skipping_gates
+from .conftest import COLLECTION, Seeded, skipping_gates, without_inventory
 
 
 @pytest.fixture
@@ -225,7 +225,16 @@ def test_page_timings_come_from_the_leaves(
     assert first.entries_per_session == 1.0
     assert first.active_seconds is not None
     assert first.active_seconds.count == 4
-    assert first.total_active_seconds == pytest.approx(4 * 0.054)
+
+    # Four sessions left the first page once each, at the recording's
+    # own active time.
+    leave = next(
+        e
+        for e in seeded.hello
+        if e["kind"] == "page-leave" and e["page"] == "01-welcome"
+    )
+
+    assert first.total_active_seconds == pytest.approx(4 * leave["active_ms"] / 1000)
 
     # The last page is never left, and a page outside the list is
     # appended after the listed ones.
@@ -255,6 +264,92 @@ def test_action_usage_counts_triggers_and_outcomes(
     assert first.ok == 4
     assert first.error == 0
     assert first.downgraded == 0
+
+
+def test_coverage_reports_what_nobody_ran(
+    app: Any, now: datetime, settings: Settings, seeded: Seeded
+) -> None:
+    """The inventory against the events, per page and directive.
+
+    Every kept hello session carries an inventory. The complete
+    recording ran 43 of the 46 directives its page list named; the
+    three it never ran are what nobody ran, since the partial sessions
+    ran less. A session from an older extension is counted and
+    otherwise silent, and its own coverage is unknown, not zero.
+    """
+
+    app.state.ingest.accept(
+        without_inventory(seeded.hello, "hello-older", instance_id="inst-old"), None
+    )
+
+    with app.state.engine.connect() as connection:
+        report = queries.coverage(connection, HELLO, now, settings)
+        summary = queries.workshop_summary(connection, HELLO, now, settings)
+        usage = queries.action_usages(connection, HELLO, now, settings)
+        older = queries.session_detail(connection, "hello-older", now, settings)
+        complete = queries.session_detail(connection, seeded.complete, now, settings)
+
+    assert report.sessions == 6
+    assert report.with_inventory == 5
+    assert report.data_quality.with_inventory == 5
+    assert report.directives == 46
+    assert report.never_run == ["01-welcome-3", "01-welcome-5", "05-variables-2"]
+    assert report.coverage is not None
+    assert report.coverage.count == 5
+    assert report.coverage.max == round(43 / 46, 3)
+
+    welcome = report.pages[0]
+
+    assert welcome.page.id == "01-welcome"
+    assert welcome.position == 1
+    assert welcome.listed == 5
+    assert [d.id for d in welcome.directives] == [
+        "01-welcome-1",
+        "01-welcome-2",
+        "filebrowser",
+        "jupyterlab-workshop-panel",
+        "01-welcome-3",
+        "01-welcome-4",
+        "01-welcome-5",
+    ]
+
+    by_id = {d.id: d for d in welcome.directives}
+    first = by_id["01-welcome-1"]
+    never = by_id["01-welcome-3"]
+
+    assert first.type == "toast"
+    assert first.trigger == "click"
+    assert first.conditional is False
+    assert first.listed == 5
+    assert 1 <= first.ran <= 5
+    assert first.share == round(first.ran / 5, 4)
+    assert (never.listed, never.ran, never.share) == (5, 0, 0.0)
+
+    automation = next(p for p in report.pages if p.page.id == "07-automation")
+
+    assert {d.trigger for d in automation.directives} >= {"auto", "cascade"}
+
+    # The outcomes carry the percentile over journeys, the older
+    # session's journey left out; the action report reads runs against
+    # the sessions that listed each action.
+    assert summary.total.journeys == 5
+    assert summary.total.with_inventory == 4
+    assert summary.total.coverage is not None
+    assert summary.total.coverage.count == 4
+    assert summary.total.coverage.max == round(43 / 46, 3)
+    assert usage.with_inventory == 5
+    assert next(a for a in usage.actions if a.id == "01-welcome-1").listed == 5
+
+    # The drill-down: per page, the directives with what ran marked, or
+    # unknown for the older session.
+    assert complete.session.coverage == round(43 / 46, 4)
+    assert complete.pages[0].directives is not None
+    assert [d.id for d in complete.pages[0].directives if not d.run] == [
+        "01-welcome-3",
+        "01-welcome-5",
+    ]
+    assert older.session.coverage is None
+    assert all(visit.directives is None for visit in older.pages)
 
 
 def test_checks_report_pass_rates_attempts_and_hints(
@@ -506,7 +601,7 @@ def test_describe_reports_what_the_store_holds(
     description = queries.describe(connection, now, settings)
 
     assert description.service["dialect"] == "sqlite"
-    assert description.service["schema_version"] == "0.2.0"
+    assert description.service["schema_version"] == "0.2.1"
     assert "workshop-start" in description.events["kinds"]
     assert "active_ms" in description.events["kinds"]["page-leave"]["fields"]
     assert "seq" in description.events["base_fields"]

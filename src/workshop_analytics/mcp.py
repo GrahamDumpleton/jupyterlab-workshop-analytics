@@ -274,6 +274,19 @@ def build_server(app: FastAPI) -> MCPServer:
         )
 
     @server.tool(
+        description="What nobody ran in a workshop: per page and directive, the "
+        "sessions whose page list named it and the sessions that ran it, with "
+        "how each was expected to start; only sessions from extension 0.2.1 "
+        "and later carry the inventory."
+    )
+    async def coverage(name: str, select: Selection | None = None) -> dict[str, Any]:
+        filters = to_filters(select, name)
+
+        return asdict(
+            await ask(lambda c: queries.coverage(c, filters, now(), state.settings))
+        )
+
+    @server.tool(
         description="Verify and quiz pass rates of a workshop, attempts before "
         "passing, hints opened and gates skipped."
     )

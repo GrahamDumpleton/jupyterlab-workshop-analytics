@@ -30,6 +30,7 @@ the [MCP server](mcp.md) at `/mcp`.
 | `GET /api/workshops/{name}/funnel` | Journeys reaching each page in order, leaving it, and stopping on it. |
 | `GET /api/workshops/{name}/pages` | Time on each page from `page-leave`, as percentiles, with entries per session. |
 | `GET /api/workshops/{name}/actions` | Per action id: runs by trigger, ok, error, skipped and downgraded, and whether the clickable actions are used at all. |
+| `GET /api/workshops/{name}/coverage` | What nobody ran: per page and directive, the sessions whose page list named it and the sessions that ran it, with how each was expected to start. |
 | `GET /api/workshops/{name}/checks` | Verify and quiz pass rates, attempts before passing, hints opened and gates skipped. |
 | `GET /api/workshops/{name}/trends` | The outcomes bucketed by day or week, and by a `group_by` dimension when asked. |
 | `GET /api/workshops/{name}/sessions` | The workshop's sessions, newest first, cursor paged. |
@@ -160,7 +161,24 @@ The metrics, as `describe` also states them:
 - **Actions** count runs by trigger (`click`, `role`, `auto`,
   `cascade`, `trigger`) and by outcome, and `clicked` with
   `sessions_clicking` say whether learners use the clickable actions
-  at all.
+  at all. `listed` is how many sessions had the action to run, from
+  the inventory below, so runs can be read against opportunities.
+
+- **Coverage** is what nobody ran. From extension 0.2.1 the page list
+  a session starts with names the directives on each page and how
+  each is expected to start (`click`, `auto`, `cascade` or `trigger`,
+  the words the events use), with `conditional` marking one a `when`
+  block or option may hide. The report counts, per page and directive,
+  the sessions whose inventory named it and the sessions whose events
+  report it ran, matched by id, and lists under `never_run` the
+  directives no session ran. A `click` nobody pressed, an `auto` that
+  never fired, a `cascade` whose predecessor never succeeded and a
+  `trigger` nothing set off are different findings, and a conditional
+  directive may never have been shown. A session's `coverage` is the
+  share of its listed directives it ran; the outcomes carry the
+  percentiles over journeys, the coverage report over sessions, and a
+  session without an inventory is left out rather than read as zero.
+  `with_inventory` in the data quality note says how many took part.
 
 - **Checks** count, per verify or quiz id, the sessions that ran it,
   the sessions that passed it at least once, the pass rate as the

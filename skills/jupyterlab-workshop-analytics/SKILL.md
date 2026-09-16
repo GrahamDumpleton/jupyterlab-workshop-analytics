@@ -68,7 +68,20 @@ through either.
 
 - **Whether the clickable actions are used.** `action_usage`:
   `clicked` and `sessions_clicking` against `sessions`, then per
-  action the runs by trigger and the errors and skips.
+  action the runs by trigger and the errors and skips, with `listed`
+  saying how many sessions had the action to run.
+
+- **What nobody clicked.** `coverage`: per page and directive, the
+  sessions whose page list named it (`listed`) and the sessions that
+  ran it (`ran`), and `never_run` for the directives no session ran.
+  Read each with its `trigger`: a `click` nobody pressed is a button
+  learners skip; an `auto` that never fired or a `cascade` whose
+  predecessor never succeeded is the workshop not working as written;
+  a `trigger` nothing set off is a check the learner never reached.
+  A `conditional` directive may never have been shown, so do not
+  report it as skipped. Only sessions from extension 0.2.1 and later
+  carry the inventory: `with_inventory` says how many did, and a
+  workshop with none has no coverage to report, not zero.
 
 - **Whether the checks pass.** `checks`: per verify or quiz the
   sessions that ran it, the sessions that passed, the pass rate and

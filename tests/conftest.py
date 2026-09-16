@@ -36,7 +36,7 @@ pytest_plugins = ["wrapture.pytest_plugin"]
 
 FIXTURES = Path(__file__).with_name("fixtures")
 
-FIXTURE_EXTENSION_VERSION = "0.2.0"
+FIXTURE_EXTENSION_VERSION = "0.2.1"
 
 
 @pytest.fixture(scope="session")
@@ -154,7 +154,7 @@ def dashboard_token(key: bytes) -> str:
 
 
 def load_fixture(name: str) -> list[dict[str, Any]]:
-    """The events of a fixture file, recorded by extension 0.2.0."""
+    """The events of a fixture file, recorded by extension 0.2.1."""
 
     path = FIXTURES / f"{name}.jsonl"
     events: list[dict[str, Any]] = []
@@ -336,6 +336,28 @@ def skipping_gates(
     )
 
     copies[index] = skipped
+
+    return copies
+
+
+def without_inventory(
+    events: list[dict[str, Any]], session_id: str, *, instance_id: str = ""
+) -> list[dict[str, Any]]:
+    """A copy of a recording as a session from an extension before 0.2.1.
+
+    The page entries of the start and resume events lose their
+    `directives`, so the session carries no inventory and every
+    coverage question about it must answer unknown.
+    """
+
+    copies = variant(events, session_id, instance_id=instance_id)
+
+    for event in copies:
+        if event["kind"] in {"workshop-start", "workshop-resume"}:
+            event["pages"] = [
+                {key: value for key, value in page.items() if key != "directives"}
+                for page in event["pages"]
+            ]
 
     return copies
 

@@ -117,6 +117,35 @@
         "title": {
           "type": "string",
           "description": "The page title as shown in the panel."
+        },
+        "directives": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/directive" },
+          "description": "The directives on the page that can produce an event, in document order, so a consumer can tell what was never run. Sent since extension 0.2.1; absent from earlier sessions."
+        }
+      }
+    },
+    "directive": {
+      "type": "object",
+      "description": "One directive of a page as the inventory lists it.",
+      "required": ["id", "type", "trigger"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The directive id, as action-executed, verify-result, quiz-answered, form-submitted and hint-opened report it: the id option when set, otherwise generated from the page id and the directive's position on the page."
+        },
+        "type": {
+          "type": "string",
+          "description": "The directive name: an action type such as execute, or verify, quiz, form or hint."
+        },
+        "trigger": {
+          "type": "string",
+          "description": "How the directive is expected to start, in the words action-executed and verify-result report: auto when it carries the auto option, cascade when another directive's cascade names it or falls through to it, trigger when a check's trigger option lists anything beyond a click, and click otherwise. The first of those wins where more than one applies, and the manifest's defaults.actions apply under the directive's own options."
+        },
+        "conditional": {
+          "type": "boolean",
+          "description": "Present and true when a when block or a when option decides whether the learner sees the directive, so one never run may never have been shown."
         }
       }
     },

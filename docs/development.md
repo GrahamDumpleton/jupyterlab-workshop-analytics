@@ -101,7 +101,7 @@ context flows into the request.
 
 `tests/fixtures/` holds `events.jsonl` files from real runs of the
 showcase and example workshops under the extension's self-test,
-recorded by extension 0.2.0. The projection tests derive the gap,
+recorded by extension 0.2.1. The projection tests derive the gap,
 missing-tail and missing-head cases by dropping lines from them, and
 `shifted_to_now()` in `conftest.py` moves a fixture's timestamps so a
 session reads as live whenever the test runs. The `seeded` fixture

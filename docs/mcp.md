@@ -39,6 +39,7 @@ request without a token, or with one that lacks the scope, answers
 | `funnel` | Journeys reaching, leaving and stopping on each page. |
 | `page_timing` | Time on each page. |
 | `action_usage` | Runs by trigger and outcome per action. |
+| `coverage` | What nobody ran, per page and directive. |
 | `checks` | Verify and quiz pass rates, attempts, hints, gates. |
 | `trends` | Outcomes by day or week. |
 | `list_sessions` | Sessions newest first, cursor paged. |

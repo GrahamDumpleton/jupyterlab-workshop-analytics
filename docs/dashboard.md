@@ -114,8 +114,11 @@ last heard from, its duration, its progress through the pages with
 any gates it skipped, how many of its events arrived, its workshop, labels and token, and the
 chain of sessions it belongs to when it resumed another or was
 resumed; a table of the workshop's pages with whether each was
-entered and left, the active time on it and how many times it was
-entered; and the timeline, every event in order with its kind, page,
+entered and left, the active time on it, how many times it was
+entered and, for a session from extension 0.2.1 or later, how many of
+the page's directives the session ran out of those listed, the ones
+never run named on hover (unknown for an older session, which sent
+no inventory); and the timeline, every event in order with its kind, page,
 id, status and the kind's own fields, with a marked row wherever
 events are missing. The page is rendered on the server from the same
 query the API answers at `/api/sessions/{id}` ([API](api.md)), and

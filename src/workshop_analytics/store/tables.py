@@ -85,6 +85,7 @@ sessions = Table(
     Column("pages_left", JSON, nullable=False),
     Column("pages_done", Integer, nullable=False, default=0),
     Column("gates_skipped", Integer, nullable=False, default=0),
+    Column("directives_run", JSON, nullable=False, default=list),
     Column("finished_at", DateTime, nullable=True),
     Column("abandoned_at", DateTime, nullable=True),
     Column("resumed_from", String(128), nullable=False, default=""),

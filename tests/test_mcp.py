@@ -22,6 +22,7 @@ EXPECTED_TOOLS = {
     "funnel",
     "page_timing",
     "action_usage",
+    "coverage",
     "checks",
     "trends",
     "list_sessions",
@@ -191,6 +192,10 @@ async def test_the_tools_answer_as_the_api_does(
     progress = await mcp.call("collection_progress", {"collection": COLLECTION})
 
     assert progress["instances"] == 2
+
+    report = await mcp.call("coverage", {"name": "hello-jupyterlab"})
+
+    assert report["never_run"] == ["01-welcome-3", "01-welcome-5", "05-variables-2"]
 
     live = await mcp.call("live", {})
 

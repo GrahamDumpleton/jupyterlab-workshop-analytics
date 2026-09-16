@@ -25,7 +25,7 @@ from workshop_analytics.schema import EventValidator
 from workshop_analytics.store.tables import sessions
 from workshop_analytics.store.writes import parse_timestamp
 
-from .conftest import load_fixture, skipping_gates
+from .conftest import load_fixture, skipping_gates, without_inventory
 
 GOLDEN = Path(__file__).with_name("golden") / "projection.txt"
 
@@ -65,7 +65,7 @@ def test_a_complete_session_projects_whole(ingest: Ingest, engine: Engine) -> No
     assert result.stored == 63
     assert row.name == "hello-jupyterlab"
     assert row.frontend == "jupyterlab"
-    assert row.frontend_version == "0.2.0"
+    assert row.frontend_version == "0.2.1"
     assert row.host == "local"
     entered = list(
         dict.fromkeys(e["page"] for e in events if e["kind"] == "page-enter")
@@ -83,6 +83,50 @@ def test_a_complete_session_projects_whole(ingest: Ingest, engine: Engine) -> No
     assert row.complete is True
     assert [entry["kind"] for entry in row.recent][-1] == "action-executed"
     assert len(row.recent) == 5
+
+
+def test_the_inventory_and_the_directives_run_are_kept(
+    ingest: Ingest, engine: Engine
+) -> None:
+    """The page list keeps each page's directives; the session keeps what ran.
+
+    The recording's first page lists seven directives and the self-test
+    ran five of them, so the two it never ran are what a coverage
+    report must name. A session recorded without the inventory keeps
+    its page entries bare, so nothing later reads its silence as zero.
+    """
+
+    events = load_fixture("hello-jupyterlab")
+
+    ingest.accept(events, None)
+    ingest.accept(
+        without_inventory(events, "hello-older", instance_id="inst-old"), None
+    )
+
+    row = session_row(engine, events[0]["session_id"])
+    first = row.pages[0]
+
+    assert set(first) == {"id", "path", "title", "directives"}
+    assert len(first["directives"]) == 7
+    assert first["directives"][0] == {
+        "id": "01-welcome-1",
+        "type": "toast",
+        "trigger": "click",
+    }
+    assert {d["trigger"] for page in row.pages for d in page["directives"]} == {
+        "click",
+        "trigger",
+        "auto",
+        "cascade",
+    }
+    assert "01-welcome-1" in row.directives_run
+    assert "01-welcome-3" not in row.directives_run
+    assert len(row.directives_run) == len(set(row.directives_run))
+
+    older = session_row(engine, "hello-older")
+
+    assert all(set(page) == {"id", "path", "title"} for page in older.pages)
+    assert older.directives_run == row.directives_run
 
 
 def test_gates_skipped_are_counted_on_the_session(

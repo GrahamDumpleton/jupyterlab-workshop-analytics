@@ -446,9 +446,8 @@ async def test_an_unknown_field_is_stored_whole_and_warned_once(
 
     good = load_fixture("why-a-workshop")
     start = next(e for e in good if e["kind"] == "workshop-start")
-    inventory = [{"id": "x", "type": "execute", "trigger": "click"}]
     newer = dict(start)
-    newer["pages"] = [{**page, "directives": inventory} for page in start["pages"]]
+    newer["pages"] = [{**page, "colour": "red"} for page in start["pages"]]
     unknown_kind = {
         **good[1],
         "kind": "something-new",
@@ -472,7 +471,7 @@ async def test_an_unknown_field_is_stored_whole_and_warned_once(
 
         warning = logs.events.at_level("WARNING").assert_once().first
 
-        assert "pages[].directives" in warning.data["message"]
+        assert "pages[].colour" in warning.data["message"]
 
     # Both events are stored as they arrived, unknown parts included.
     with traced_app.state.engine.connect() as connection:
@@ -484,5 +483,5 @@ async def test_an_unknown_field_is_stored_whole_and_warned_once(
 
     payloads = {kind: payload for kind, payload in rows}
 
-    assert payloads["workshop-start"]["pages"][0]["directives"] == inventory
+    assert payloads["workshop-start"]["pages"][0]["colour"] == "red"
     assert payloads["something-new"]["extra"] is True
