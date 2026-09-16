@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import socket
 import sys
@@ -177,6 +178,29 @@ def command_serve(args: argparse.Namespace) -> int:
     return 0
 
 
+class QueryStripper(logging.Filter):
+    """Keep the query string out of uvicorn's access log.
+
+    uvicorn logs every request as its method, its path and its query
+    string, and two of the service's routes take a token in the query:
+    the dashboard's `?token=` sign-in and the `/events?token=` form a
+    JupyterLite site uses. A token must never reach a log, so the line
+    keeps the path and drops everything after the question mark.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        args = record.args
+
+        # The access record's arguments are the client, the method, the
+        # path with its query string, the HTTP version and the status.
+        if isinstance(args, tuple) and len(args) == 5 and isinstance(args[2], str):
+            record.args = (*args[:2], args[2].partition("?")[0], *args[3:])
+
+        return True
+
+
+STRIP_QUERY = QueryStripper()
+
 SHUTDOWN_GRACE_SECONDS = 5
 
 
@@ -206,6 +230,10 @@ def make_server(app: Any, *, host: str, port: int) -> Any:
         log_level="info",
         timeout_graceful_shutdown=SHUTDOWN_GRACE_SECONDS,
     )
+
+    # uvicorn's logging is configured by the Config above; the filter
+    # goes on afterwards so its access lines never carry a query string.
+    logging.getLogger("uvicorn.access").addFilter(STRIP_QUERY)
 
     return Server(config)
 

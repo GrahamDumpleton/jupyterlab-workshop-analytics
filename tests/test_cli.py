@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
+import logging
 import os
 from collections.abc import Iterator
 from pathlib import Path
@@ -15,7 +16,12 @@ import wrapture
 from sqlalchemy import func, select
 
 from workshop_analytics.app import create_app
-from workshop_analytics.cli import SHUTDOWN_GRACE_SECONDS, main, make_server
+from workshop_analytics.cli import (
+    SHUTDOWN_GRACE_SECONDS,
+    QueryStripper,
+    main,
+    make_server,
+)
 from workshop_analytics.config import Settings
 from workshop_analytics.live import CLOSING, Broadcaster
 from workshop_analytics.store import make_engine
@@ -263,5 +269,39 @@ async def test_serve_shutdown_ends_the_streams_before_draining(
 
     assert subscription.queue.get_nowait() is CLOSING
     assert server.config.timeout_graceful_shutdown == SHUTDOWN_GRACE_SECONDS
+
+    app.state.engine.dispose()
+
+
+def test_serve_keeps_query_strings_out_of_the_access_log(settings: Settings) -> None:
+    app = create_app(settings)
+    make_server(app, host="127.0.0.1", port=0)
+    logger = logging.getLogger("uvicorn.access")
+
+    assert any(isinstance(f, QueryStripper) for f in logger.filters)
+
+    # Log a request the way uvicorn does, with a token in the query, and
+    # read back what a handler on that logger receives.
+    seen: list[logging.LogRecord] = []
+    handler = logging.Handler()
+    handler.emit = seen.append  # type: ignore[method-assign]
+    logger.addHandler(handler)
+
+    try:
+        logger.info(
+            '%s - "%s %s HTTP/%s" %d',
+            "127.0.0.1:1234",
+            "GET",
+            "/?token=eyJhbGciOiJIUzI1NiJ9.secret.signature",
+            "1.1",
+            303,
+        )
+    finally:
+        logger.removeHandler(handler)
+
+    message = seen[0].getMessage()
+
+    assert "secret" not in message
+    assert message == '127.0.0.1:1234 - "GET / HTTP/1.1" 303'
 
     app.state.engine.dispose()

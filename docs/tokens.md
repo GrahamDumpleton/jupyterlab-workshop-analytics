@@ -114,7 +114,11 @@ A sender puts it in the `Authorization` header as `Bearer <token>`,
 which is what the extension does and what keeps it out of every log.
 The service also accepts `?token=<token>` on the sink URL, for a
 configuration that must stay URL-only, and for a JupyterLite site,
-whose browser preflight carries no header. A missing or bad token on
+whose browser preflight carries no header; the service's access log
+records the path of a request and never its query string, and the
+traces mask a `token` parameter, so that form stays out of the logs
+too, though a proxy in front of the service keeps its own access log
+with whatever it chooses. A missing or bad token on
 the sink answers 404, so the URL space reveals nothing; on the API it
 answers 401. The reason (no token, expired, wrong scope, wrong key,
 revoked) is in the response body and in the service's log as a

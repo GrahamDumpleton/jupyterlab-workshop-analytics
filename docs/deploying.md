@@ -110,6 +110,15 @@ the issuer, the collector endpoint and the image tag, then:
 $ kubectl apply -k deploy/kubernetes/overlays/production
 ```
 
+A cluster that already holds a wildcard certificate for the domain
+names that Secret in the Ingress instead of the annotation, copied
+into the namespace by whatever the cluster uses for that. Have the
+Ingress redirect plain HTTP to HTTPS as well: the dashboard's cookie
+is marked Secure, so a sign-in over plain HTTP sets nothing and shows
+the form again. ingress-nginx redirects by default when TLS is
+configured; Contour needs the `ingress.kubernetes.io/force-ssl-redirect`
+annotation set to `"true"`.
+
 The Ingress is what a service receiving from Binder, from a
 JupyterLite site or from another cluster needs. A service co-located
 with a JupyterHub and fed over the cluster network can leave it out:
