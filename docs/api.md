@@ -33,6 +33,7 @@ the [MCP server](mcp.md) at `/mcp`.
 | `GET /api/workshops/{name}/coverage` | What nobody ran: per page and directive, the sessions whose page list named it and the sessions that ran it, with how each was expected to start. |
 | `GET /api/workshops/{name}/checks` | Verify and quiz pass rates, attempts before passing, hints opened and gates skipped. |
 | `GET /api/workshops/{name}/trends` | The outcomes bucketed by day or week, and by a `group_by` dimension when asked. |
+| `GET /api/trends` | The same buckets across every session the filters match, or of one workshop when `name` is given; `workshop` is null for the total. |
 | `GET /api/workshops/{name}/sessions` | The workshop's sessions, newest first, cursor paged. |
 | `GET /api/workshops/{name}/learners` | Sessions grouped by learner identity, with attempts, best progress and completion, and how many sessions carried no identity. |
 | `GET /api/sessions` | Sessions across every workshop by any filter, newest first, cursor paged. |
@@ -64,7 +65,7 @@ all optional, all combined with "and":
 The summary and trends routes add `group_by`, which is one of
 `collection`, `version`, `frontend`, `host`, `platform`, `user`, or
 any label key; a journey is grouped by its first session's value.
-The trends route adds `bucket`, `day` or `week`. The paged routes add
+The trends routes add `bucket`, `day` or `week`. The paged routes add
 `limit` (at most 1000) and `cursor`, the `next_cursor` of the previous
 page; an empty `next_cursor` is the last page. The event routes add
 `format`, `json` or `ndjson`, and honour an `Accept:

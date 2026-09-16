@@ -49,7 +49,8 @@ run when there is no workshop to hand.
 - [Tokens](docs/tokens.md): the signing key, issuing and revoking
   tokens, scopes and token-bound labels.
 
-- [The dashboard](docs/dashboard.md): signing in, the label selector,
+- [The dashboard](docs/dashboard.md): signing in, the overview, the
+  live view, the history and its downloads, a workshop's reports,
   what each status means, and a session's own page.
 
 - [The query API](docs/api.md): the routes, the filters, workshop

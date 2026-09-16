@@ -1435,9 +1435,13 @@ class TrendGroup:
 
 @dataclass
 class Trends:
-    """Outcomes over time, by day or week, and by a dimension if asked."""
+    """Outcomes over time, by day or week, and by a dimension if asked.
 
-    workshop: WorkshopRef
+    `workshop` is None when the buckets span every workshop the
+    filters matched rather than one named workshop.
+    """
+
+    workshop: WorkshopRef | None
     data_quality: DataQuality
     bucket: str
     group_by: str
@@ -1508,15 +1512,26 @@ def trends(
     bucket: str = "day",
     group_by: str = "",
 ) -> Trends:
-    """Outcomes bucketed by day or week, and by a dimension when asked."""
+    """Outcomes bucketed by day or week, and by a dimension when asked.
+
+    With a workshop name the buckets are that workshop's, its
+    collection resolved as every other report does; without one they
+    span every session the filters match, which is how the overview
+    draws the total.
+    """
 
     if bucket not in BUCKETS:
         raise QueryError(f"the bucket must be one of {', '.join(BUCKETS)}")
 
-    collection = resolve_workshop(connection, filters.name, filters.collection)
-    loaded = load_sessions(
-        connection, filters.replace(collection=collection), now, settings
-    )
+    workshop: WorkshopRef | None = None
+    narrowed = filters
+
+    if filters.name:
+        collection = resolve_workshop(connection, filters.name, filters.collection)
+        workshop = WorkshopRef(filters.name, collection)
+        narrowed = filters.replace(collection=collection)
+
+    loaded = load_sessions(connection, narrowed, now, settings)
     kept, quality = include(loaded, filters.include_incomplete)
     groups: list[TrendGroup] = []
 
@@ -1532,7 +1547,7 @@ def trends(
         ]
 
     return Trends(
-        workshop=WorkshopRef(filters.name, collection),
+        workshop=workshop,
         data_quality=quality,
         bucket=bucket,
         group_by=group_by,

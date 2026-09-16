@@ -89,7 +89,9 @@ through either.
   skipped beside them.
 
 - **How it changes over time.** `trends` with `bucket=day` or
-  `week`, and `group_by` to compare cohorts across the periods.
+  `week`, and `group_by` to compare cohorts across the periods;
+  without `name` the buckets span every workshop the selection
+  matches, the total a deployment did.
 
 - **Across a collection.** `list_collections` for the workshops in
   the order learners took them, `collection_progress` for how many
@@ -103,6 +105,13 @@ through either.
 
 - **Right now.** `live`: the sessions in progress as the dashboard
   shows them, with status, page and time since the last event.
+
+The dashboard shows the same reports as pages: the history of
+sessions with the filters, a workshop's summary, trend, funnel,
+timings, coverage and checks, and an overview of every workshop with
+the collection funnels. A supervisor with a dashboard token can read
+there what these tools answer, and a number quoted from a tool is the
+number the page shows.
 
 ## One session
 

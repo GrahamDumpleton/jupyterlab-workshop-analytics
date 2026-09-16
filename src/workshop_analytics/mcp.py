@@ -298,11 +298,12 @@ def build_server(app: FastAPI) -> MCPServer:
         )
 
     @server.tool(
-        description="A workshop's outcomes bucketed by day or week, and by a "
-        "dimension when group_by is given."
+        description="Outcomes bucketed by day or week, and by a dimension when "
+        "group_by is given; name narrows to one workshop and without it the "
+        "buckets span every session the selection matches."
     )
     async def trends(
-        name: str,
+        name: str = "",
         select: Selection | None = None,
         bucket: str = "day",
         group_by: str = "",

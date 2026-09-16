@@ -211,3 +211,137 @@ tr.current td { font-weight: 600; }
 tr.gap-row td { color: var(--gap); font-size: 12px; background: var(--ground); }
 
 td code { font-size: 12px; }
+
+/* The header's tabs. */
+
+.tabs { display: flex; gap: 4px; }
+
+.tabs a {
+  padding: 4px 10px;
+  border-radius: 6px;
+  color: var(--muted);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.tabs a:hover { color: var(--ink); background: var(--ground); }
+.tabs a.current { color: var(--ink); background: var(--ground); border: 1px solid var(--line); }
+
+.bar h1 .collection { color: var(--muted); font-weight: normal; font-size: 12px; margin-left: 6px; }
+
+/* The history's filter bar. */
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  align-items: flex-end;
+  padding: 12px 14px;
+}
+
+.filters .field { display: flex; flex-direction: column; gap: 4px; }
+.filters .field.wide { flex: 1 1 260px; }
+.filters label, .filters legend { color: var(--muted); font-size: 12px; font-weight: 600; }
+
+.filters input, .filters select {
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--ground);
+  color: var(--ink);
+  font: inherit;
+}
+
+.filters fieldset { border: none; margin: 0; padding: 0; }
+.filters .statuses { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px 12px; flex-basis: 100%; }
+.filters .statuses legend { float: left; margin-right: 4px; }
+.filters .statuses label { font-weight: normal; font-size: 13px; color: var(--ink); }
+.filters .statuses input { padding: 0; }
+.filters .actions { flex-direction: row; align-items: center; gap: 12px; }
+.filters .reset { color: var(--muted); font-size: 13px; }
+
+.card h2 .period-note, .card h2 .quality { color: var(--muted); font-weight: normal; font-size: 12px; margin-left: auto; }
+
+.pager { display: flex; gap: 16px; align-items: center; padding: 10px 14px; border-top: 1px solid var(--line); font-size: 13px; }
+.pager .downloads { margin-left: auto; color: var(--muted); }
+
+table.history td.who a { font-weight: 600; }
+table.history td .label { margin-right: 4px; }
+
+/* The report pages' toolbar, figures and charts. */
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; margin-bottom: 16px; }
+
+.periods { display: flex; gap: 2px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); padding: 2px; }
+
+.periods a, .periods span {
+  padding: 4px 10px;
+  border-radius: 4px;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.periods a:hover { color: var(--ink); }
+.periods .current { color: var(--ink); background: var(--ground); font-weight: 600; }
+
+.group-by { display: flex; gap: 8px; align-items: center; font-size: 13px; }
+.group-by label { color: var(--muted); font-weight: 600; font-size: 12px; }
+.group-by select { padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: var(--ink); font: inherit; }
+
+.history-link { margin-left: auto; font-size: 13px; }
+
+.figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+  margin: 0;
+  padding: 12px 14px;
+}
+
+.figures div { display: flex; flex-direction: column; }
+.figures dt { color: var(--muted); font-size: 12px; font-weight: 600; }
+.figures dd { margin: 0; font-size: 20px; font-weight: 600; }
+.figures dd .muted { font-weight: normal; }
+
+.summary-card table.groups { border-top: 1px solid var(--line); }
+
+.chart-body { padding: 12px 14px; }
+
+.chart { display: block; width: 100%; height: auto; }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .tick, .chart .axis { fill: var(--muted); font-size: 11px; }
+.chart .seg-finished, .swatch.seg-finished { fill: var(--finished); background: var(--finished); }
+.chart .seg-abandoned, .swatch.seg-abandoned { fill: var(--abandoned); background: var(--abandoned); }
+.chart .seg-lost, .swatch.seg-lost { fill: var(--lost); background: var(--lost); }
+.chart .seg-in_progress, .swatch.seg-in_progress { fill: var(--active); background: var(--active); }
+.chart .seg-group-0, .swatch.seg-group-0 { fill: #0969da; background: #0969da; }
+.chart .seg-group-1, .swatch.seg-group-1 { fill: #e16f24; background: #e16f24; }
+.chart .seg-group-2, .swatch.seg-group-2 { fill: #1a7f37; background: #1a7f37; }
+.chart .seg-group-3, .swatch.seg-group-3 { fill: #8250df; background: #8250df; }
+.chart .seg-group-4, .swatch.seg-group-4 { fill: #bf3989; background: #bf3989; }
+.chart .seg-group-5, .swatch.seg-group-5 { fill: #9a6700; background: #9a6700; }
+.chart .seg-group-6, .swatch.seg-group-6 { fill: #1b7c83; background: #1b7c83; }
+.chart .seg-group-7, .swatch.seg-group-7 { fill: #6e7781; background: #6e7781; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; list-style: none; margin: 8px 0 0; padding: 0; font-size: 12px; color: var(--muted); }
+.legend .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+
+.sparkline { width: 120px; height: 24px; display: block; }
+.sparkline rect { fill: var(--finished); }
+td.spark { width: 140px; }
+
+table.funnel th.bars, table.funnel td.bars { width: 40%; }
+.hbar { display: block; width: 100%; height: 12px; }
+.hbar .reach { fill: var(--finished); opacity: 0.55; }
+.hbar .stop { fill: var(--lost); }
+.stopped { color: var(--lost); font-weight: 600; }
+
+.attention ul { margin: 0; padding: 10px 14px 10px 30px; }
+.attention li { margin: 4px 0; }
+.attention a { color: inherit; }
+
+.note { padding: 0 14px 10px; margin: 0; font-size: 13px; }
+.label.directive .muted { font-size: 11px; }
+
+.choices { padding-left: 20px; }

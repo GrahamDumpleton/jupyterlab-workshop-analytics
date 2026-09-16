@@ -1,31 +1,23 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Workshops in progress</title>
-  <link rel="stylesheet" href="/static/live.css?v={{ assets }}">
-</head>
-<body>
-  <header class="bar">
-    <h1>Workshops in progress</h1>
-    <form id="selector" class="selector" method="get" action="/">
+{% extends "base.html" %}
+{% block title %}Workshops in progress{% endblock %}
+{% block heading %}Workshops in progress{% endblock %}
+
+{% block selector %}
+    <form id="selector" class="selector" method="get" action="/live">
       <label for="labels">Labels</label>
       <input id="labels" name="labels" type="text" value="{{ labels }}"
              placeholder="course=intro-git,term=2026-s2" spellcheck="false">
       <button type="submit">Apply</button>
     </form>
-    <div class="viewer">
-      <span id="connection" class="connection" title="Stream state">connecting</span>
-      <span class="who">{{ viewer }}</span>
-      <form method="post" action="/logout"><button type="submit" class="link">Log out</button></form>
-    </div>
-  </header>
+{% endblock %}
 
-  <main>
+{% block viewer %}
+      <span id="connection" class="connection" title="Stream state">connecting</span>
+{% endblock %}
+
+{% block content %}
     <p id="empty" class="empty" hidden>No workshops are being done right now.</p>
     <div id="groups"></div>
-  </main>
 
   <template id="row">
     <tr class="session">
@@ -39,7 +31,9 @@
       <td class="recent"></td>
     </tr>
   </template>
+{% endblock %}
 
+{% block scripts %}
   <script>
     window.DASHBOARD = {
       labels: {{ labels | tojson }},
@@ -47,5 +41,4 @@
     };
   </script>
   <script src="/static/live.js?v={{ assets }}"></script>
-</body>
-</html>
+{% endblock %}

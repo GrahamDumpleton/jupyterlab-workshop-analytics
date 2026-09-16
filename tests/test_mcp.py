@@ -235,3 +235,8 @@ async def test_refusals_come_back_as_tool_errors(mcp: Client) -> None:
     )
 
     assert "bucket" in bad_bucket["error"]
+
+    everything = await mcp.call("trends", {"bucket": "week"})
+
+    assert everything["workshop"] is None
+    assert sum(b["outcomes"]["journeys"] for b in everything["buckets"]) == 8

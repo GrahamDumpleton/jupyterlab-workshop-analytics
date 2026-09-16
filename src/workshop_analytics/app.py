@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import __version__, mcp
+from . import __version__, mcp, views
 from .api import dashboard, health, live, query, sink
 from .config import Settings
 from .ingest import Ingest, RateLimiter
@@ -94,6 +94,9 @@ def create_app(
     app.state.templates = Jinja2Templates(directory=str(DASHBOARD_DIR / "templates"))
     app.state.templates.env.filters["duration"] = dashboard.duration_text
     app.state.templates.env.filters["detail"] = dashboard.detail_text
+    app.state.templates.env.filters["percent"] = dashboard.percent_text
+    app.state.templates.env.globals["query_string"] = views.query_string
+    app.state.templates.env.globals["period_labels"] = views.PERIOD_LABELS
     app.state.assets_version = assets_version(DASHBOARD_DIR / "static")
     app.state.sql = SqlTool(settings)
 

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Workshop dashboard{% endblock %}</title>
+  <link rel="stylesheet" href="/static/live.css?v={{ assets }}">
+</head>
+<body>
+  <header class="bar">
+    <h1>{% block heading %}{% endblock %}</h1>
+    <nav class="tabs" aria-label="Views">
+      {% for href, label, key in tabs %}<a href="{{ href }}{% if labels %}?labels={{ labels | urlencode }}{% endif %}"{% if key == tab %} class="current" aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+    </nav>
+    {% block selector %}{% endblock %}
+    <div class="viewer">
+      {% block viewer %}{% endblock %}
+      <span class="who">{{ viewer }}</span>
+      <form method="post" action="/logout"><button type="submit" class="link">Log out</button></form>
+    </div>
+  </header>
+
+  <main>
+{% block content %}{% endblock %}
+  </main>
+
+  <script>
+    // Times arrive as UTC; show them in the viewer's own clock.
+    document.querySelectorAll("time[datetime]").forEach(function (element) {
+      const date = new Date(element.getAttribute("datetime"));
+      if (isNaN(date.getTime())) return;
+      element.title = element.getAttribute("datetime");
+      element.textContent = element.hasAttribute("data-clock")
+        ? date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+        : element.hasAttribute("data-date")
+        ? date.toLocaleDateString([], { dateStyle: "medium" })
+        : date.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+    });
+  </script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

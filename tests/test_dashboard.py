@@ -1,16 +1,24 @@
-"""The dashboard page and its two ways in."""
+"""The dashboard's pages and its two ways in."""
 
 from __future__ import annotations
 
+import csv
+import io
+import json
+import re
 from typing import Any
+from urllib.parse import quote_plus
 
 import httpx
 import pytest
 
+from workshop_analytics import queries
 from workshop_analytics.app import DASHBOARD_DIR
 from workshop_analytics.config import SESSION_COOKIE
+from workshop_analytics.queries import Filters
+from workshop_analytics.store.writes import utcnow
 
-from .conftest import Seeded, without_inventory
+from .conftest import COLLECTION, Seeded, without_inventory
 
 
 def with_cookie(value: str) -> dict[str, str]:
@@ -52,8 +60,14 @@ async def test_the_login_form_exchanges_a_dashboard_token_for_a_cookie(
     page = await client.get("/", headers=with_cookie(cookie))
 
     assert page.status_code == 200
-    assert "Workshops in progress" in page.text
+    assert "<title>Workshops</title>" in page.text
     assert "supervisor" in page.text
+    assert 'href="/live"' in page.text and 'href="/sessions"' in page.text
+
+    live_page = await client.get("/live", headers=with_cookie(cookie))
+
+    assert live_page.status_code == 200
+    assert "Workshops in progress" in live_page.text
 
     live = await client.get("/api/live", headers=with_cookie(cookie))
 
@@ -131,8 +145,14 @@ async def test_the_pages_link_their_assets_by_version(
     assert f"/static/live.css?v={version}" in login.text
 
     entered = await client.get(f"/?token={dashboard_token}", follow_redirects=True)
+    value = entered.history[0].cookies.get(SESSION_COOKIE)
 
-    assert f"/static/live.js?v={version}" in entered.text
+    assert value
+
+    live = await client.get("/live", headers=with_cookie(value))
+
+    assert f"/static/live.css?v={version}" in entered.text
+    assert f"/static/live.js?v={version}" in live.text
     assert (await client.get(f"/static/live.js?v={version}")).status_code == 200
 
 
@@ -184,3 +204,250 @@ async def test_the_session_page_shows_the_timeline_to_a_signed_in_viewer(
 
     assert missing.status_code == 404
     assert "There is no session" in missing.text
+
+
+@pytest.fixture
+async def cookie(client: httpx.AsyncClient, dashboard_token: str) -> dict[str, str]:
+    """The headers of a signed-in supervisor."""
+
+    signed_in = await client.post("/login", data={"token": dashboard_token})
+    value = signed_in.cookies.get(SESSION_COOKIE)
+
+    assert value
+
+    return with_cookie(value)
+
+
+async def test_every_page_needs_a_session(
+    client: httpx.AsyncClient, seeded: Seeded
+) -> None:
+    for path in (
+        "/live",
+        "/sessions",
+        "/workshops/hello-jupyterlab",
+        "/downloads/sessions.csv",
+        "/downloads/events.ndjson",
+    ):
+        response = await client.get(path)
+
+        assert response.status_code == 401, path
+        assert 'name="token"' in response.text, path
+
+
+async def test_the_history_lists_sessions_newest_first_and_filters_them(
+    client: httpx.AsyncClient, cookie: dict[str, str], seeded: Seeded
+) -> None:
+    page = await client.get("/sessions", headers=cookie)
+
+    assert page.status_code == 200
+    assert "11 match" in page.text
+    assert page.text.index(f"/sessions/{seeded.live}") < page.text.index(
+        f"/sessions/{seeded.complete}"
+    )
+    assert 'href="/workshops/hello-jupyterlab?collection="' in page.text
+    assert "course=advanced" in page.text
+
+    # The form offers the values that occur.
+    assert '<option value="hello-jupyterlab"' in page.text
+    assert f'<option value="{COLLECTION}"' in page.text
+    assert '<option value="binder"' in page.text or '<option value="local"' in page.text
+
+    narrowed = await client.get(
+        "/sessions",
+        params={"name": "hello-jupyterlab", "labels": "course=advanced"},
+        headers=cookie,
+    )
+
+    assert "1 match" in narrowed.text
+    assert f"/sessions/{seeded.gapped}" in narrowed.text
+    assert f"/sessions/{seeded.complete}" not in narrowed.text
+    assert 'value="course=advanced"' in narrowed.text
+
+    by_status = await client.get(
+        "/sessions",
+        params=[("status", "finished"), ("status", "lost"), ("collection", "none")],
+        headers=cookie,
+    )
+
+    assert 'value="finished" checked' in by_status.text
+    assert 'value="lost" checked' in by_status.text
+    assert "status-abandoned" not in by_status.text
+
+    bad = await client.get("/sessions", params={"status": "asleep"}, headers=cookie)
+
+    assert bad.status_code == 200
+    assert "unknown status asleep" in bad.text
+    assert "0 match" not in bad.text
+
+
+async def test_the_history_pages_with_a_cursor(
+    client: httpx.AsyncClient, cookie: dict[str, str], seeded: Seeded
+) -> None:
+    first = await client.get("/sessions", params={"limit": 4}, headers=cookie)
+    older = re.search(r'href="([^"]*cursor=[^"]+)" rel="next"', first.text)
+
+    assert older is not None
+    assert "showing 4" in first.text
+
+    second = await client.get(older.group(1).replace("&amp;", "&"), headers=cookie)
+    ids_first = set(re.findall(r'href="/sessions/([^"]+)" title', first.text))
+    ids_second = set(re.findall(r'href="/sessions/([^"]+)" title', second.text))
+
+    assert len(ids_first) == 4 and len(ids_second) == 4
+    assert not ids_first & ids_second
+    assert ">Newest<" in second.text
+
+
+async def test_the_downloads_serve_the_selection(
+    client: httpx.AsyncClient, cookie: dict[str, str], seeded: Seeded
+) -> None:
+    sheet = await client.get(
+        "/downloads/sessions.csv", params={"name": "hello-jupyterlab"}, headers=cookie
+    )
+
+    assert sheet.status_code == 200
+    assert sheet.headers["content-type"].startswith("text/csv")
+    assert "sessions.csv" in sheet.headers["content-disposition"]
+
+    rows = list(csv.DictReader(io.StringIO(sheet.text)))
+
+    assert len(rows) == 7
+    assert rows[0]["session_id"] == seeded.live
+    assert {row["labels"] for row in rows} >= {"course=intro", "course=advanced"}
+    assert rows[-1]["status"] in {"finished", "lost", "resumed", "abandoned"}
+
+    lines = await client.get(
+        "/downloads/events.ndjson",
+        params={"name": "hello-jupyterlab", "labels": "course=advanced"},
+        headers=cookie,
+    )
+
+    assert lines.status_code == 200
+    assert lines.headers["content-type"].startswith("application/x-ndjson")
+
+    events = [json.loads(line) for line in lines.text.splitlines()]
+
+    assert len(events) == len(seeded.hello) - 3
+    assert {event["session_id"] for event in events} == {seeded.gapped}
+    assert [event["seq"] for event in events][:3] == [1, 2, 3]
+
+    bad = await client.get(
+        "/downloads/sessions.csv", params={"since": "yesterday"}, headers=cookie
+    )
+
+    assert bad.status_code == 400
+
+
+async def test_the_workshop_page_shows_the_reports(
+    app: Any, client: httpx.AsyncClient, cookie: dict[str, str], seeded: Seeded
+) -> None:
+    page = await client.get(
+        "/workshops/hello-jupyterlab", params={"period": "all"}, headers=cookie
+    )
+
+    assert page.status_code == 200
+    assert "<title>hello-jupyterlab</title>" in page.text
+    assert 'id="funnel"' in page.text and 'id="checks"' in page.text
+
+    # The stacked bars count what trends counts: one rect per outcome
+    # that occurred in a bucket.
+    with app.state.engine.connect() as connection:
+        trends = queries.trends(
+            connection, Filters(name="hello-jupyterlab"), utcnow(), app.state.settings
+        )
+
+    for key in ("finished", "lost", "in_progress"):
+        expected = sum(1 for b in trends.buckets if getattr(b.outcomes, key))
+
+        assert page.text.count(f'class="seg seg-{key}"') == expected, key
+
+    assert sum(b.outcomes.finished for b in trends.buckets) == 2
+    assert "finished 2" in page.text
+
+    # The never-run list names the three directives the recording skipped.
+    for directive in ("01-welcome-3", "01-welcome-5", "05-variables-2"):
+        assert directive in page.text
+
+    assert "Needs attention" in page.text
+    assert "01-welcome-3" in page.text
+
+    # Grouping draws one bar per value and lists the groups.
+    grouped = await client.get(
+        "/workshops/hello-jupyterlab",
+        params={"period": "all", "group_by": "user"},
+        headers=cookie,
+    )
+
+    assert 'class="seg seg-group-0"' in grouped.text
+    assert "alice" in grouped.text and "bob" in grouped.text
+
+    # A period nothing falls in still renders, with empty charts.
+    quiet = await client.get(
+        "/workshops/hello-jupyterlab",
+        params={"since": "2020-01-01", "until": "2020-02-01"},
+        headers=cookie,
+    )
+
+    assert quiet.status_code == 200
+    assert "nothing in this period" in quiet.text
+
+
+async def test_the_workshop_page_refuses_what_the_api_refuses(
+    client: httpx.AsyncClient, cookie: dict[str, str], seeded: Seeded
+) -> None:
+    ambiguous = await client.get("/workshops/why-a-workshop", headers=cookie)
+
+    assert ambiguous.status_code == 409
+    assert "more than one collection" in ambiguous.text
+    assert 'href="/workshops/why-a-workshop?collection="' in ambiguous.text
+    assert f'href="/workshops/why-a-workshop?collection={quote_plus(COLLECTION)}"' in (
+        ambiguous.text
+    )
+
+    chosen = await client.get(
+        "/workshops/why-a-workshop", params={"collection": COLLECTION}, headers=cookie
+    )
+
+    assert chosen.status_code == 200
+
+    missing = await client.get("/workshops/nothing", headers=cookie)
+
+    assert missing.status_code == 404
+
+    bad = await client.get(
+        "/workshops/hello-jupyterlab", params={"labels": "=="}, headers=cookie
+    )
+
+    assert bad.status_code == 400
+
+
+async def test_the_overview_lists_workshops_and_collections(
+    client: httpx.AsyncClient, cookie: dict[str, str], seeded: Seeded
+) -> None:
+    page = await client.get("/", params={"period": "all"}, headers=cookie)
+
+    assert page.status_code == 200
+    assert 'href="/workshops/hello-jupyterlab?period=all&amp;collection="' in page.text
+    assert page.text.count('class="sparkline"') == 4
+    assert "8 journeys" in page.text
+    assert 'class="seg seg-finished"' in page.text
+
+    # The collection's funnel names its workshops in the order taken.
+    assert "collection-card" in page.text
+    assert page.text.index(
+        "why-a-workshop</a>", page.text.index("collection-card")
+    ) < page.text.index("guided-not-documented</a>", page.text.index("collection-card"))
+
+    # The period narrows the listing; a labels selector is kept in the tabs.
+    quiet = await client.get(
+        "/",
+        params={"since": "2020-01-01", "until": "2020-02-01", "labels": "course=intro"},
+        headers=cookie,
+    )
+
+    assert "No workshop has sessions in this period" in quiet.text
+    assert 'href="/sessions?labels=course%3Dintro"' in quiet.text
+
+    bad = await client.get("/", params={"since": "never"}, headers=cookie)
+
+    assert bad.status_code == 400

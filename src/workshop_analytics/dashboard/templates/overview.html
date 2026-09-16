@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% import "charts.html" as charts %}
+{% block title %}Workshops{% endblock %}
+{% block heading %}Workshops{% endblock %}
+
+{% block selector %}
+    <form class="selector" method="get" action="/">
+      {% for key in ('period', 'bucket', 'since', 'until') %}{% if params.get(key) %}<input type="hidden" name="{{ key }}" value="{{ params[key] }}">{% endif %}{% endfor %}
+      <label for="labels">Labels</label>
+      <input id="labels" name="labels" type="text" value="{{ params.labels }}"
+             placeholder="course=intro-git,term=2026-s2" spellcheck="false">
+      <button type="submit">Apply</button>
+    </form>
+{% endblock %}
+
+{% block content %}
+    <div class="toolbar">
+      {{ charts.periods(params, period, "30") }}
+      <nav class="periods" aria-label="Bucket">
+        <a href="{{ query_string(params, bucket='day') }}"{% if trends.bucket == 'day' %} class="current"{% endif %}>By day</a>
+        <a href="{{ query_string(params, bucket='week') }}"{% if trends.bucket == 'week' %} class="current"{% endif %}>By week</a>
+      </nav>
+    </div>
+
+    <section class="card summary-card" id="trend">
+      <h2>All workshops, {{ period.label | lower if not period.custom else "custom range" }}
+        <span class="count">{{ totals.journeys }} journeys</span>
+        <span class="quality" title="{{ trends.data_quality.included }} of {{ trends.data_quality.considered }} sessions counted; {{ trends.data_quality.excluded_gaps }} left out for gaps and {{ trends.data_quality.excluded_missing_head }} for missing first events">{{ trends.data_quality.included }} of {{ trends.data_quality.considered }} sessions counted</span>
+      </h2>
+      <dl class="figures">
+        <div><dt>Finished</dt><dd>{{ totals.finished }}</dd></div>
+        <div><dt>Abandoned</dt><dd>{{ totals.abandoned }}</dd></div>
+        <div><dt>Lost</dt><dd>{{ totals.lost }}</dd></div>
+        <div><dt>In progress</dt><dd>{{ totals.in_progress }}</dd></div>
+        <div><dt>Completion</dt><dd>{{ totals.completion_rate | percent }}</dd></div>
+      </dl>
+      <div class="chart-body">
+        {{ charts.bars(chart, "Journeys started per " + trends.bucket + " across every workshop") }}
+      </div>
+    </section>
+
+    <section class="card" id="workshops">
+      <h2>Workshops <span class="count">{{ workshops | length }} with sessions in the period</span></h2>
+      {% if not workshops %}
+      <p class="empty">No workshop has sessions in this period.</p>
+      {% else %}
+      <table class="workshops">
+        <thead><tr><th>Workshop</th><th>Collection</th><th>Sessions</th><th>Journeys</th><th>Finished</th><th>Completion</th><th>Last activity</th><th>Last {{ spark_days }} days</th></tr></thead>
+        <tbody>
+        {% for w in workshops %}
+          <tr>
+            <td><a href="/workshops/{{ w.name | urlencode }}{{ query_string(params, collection=w.collection) }}">{{ w.name }}</a>{% if w.versions | length > 1 %} <span class="muted">{{ w.versions | length }} versions</span>{% endif %}</td>
+            <td class="muted" title="{{ w.collection }}">{{ w.collection.rsplit('/', 1)[-1] if w.collection else "" }}</td>
+            <td>{{ w.sessions }}</td>
+            <td>{{ w.journeys }}</td>
+            <td>{{ w.finished }}</td>
+            <td>{{ w.completion_rate | percent }}</td>
+            <td>{% if w.last_seen %}<time datetime="{{ w.last_seen }}">{{ w.last_seen }}</time>{% endif %}</td>
+            <td class="spark">{{ charts.sparkline(sparklines[(w.name, w.collection)]) }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+    </section>
+
+    {% for progress in collections %}
+    <section class="card collection-card">
+      <h2>Collection <span class="collection" title="{{ progress.collection }}">{{ progress.collection.rsplit('/', 1)[-1] }}</span>
+        <span class="count">{{ progress.instances }} learners, {{ progress.in_order }} in order, {{ progress.completed_all }} finished every workshop</span>
+      </h2>
+      <table class="funnel">
+        <thead><tr><th>#</th><th>Workshop</th><th class="bars">Reached, and stopped on</th><th>Reached</th><th>Finished</th><th>Stopped</th></tr></thead>
+        <tbody>
+        {% for step in progress.steps %}
+          <tr>
+            <td>{{ step.position }}</td>
+            <td><a href="/workshops/{{ step.name | urlencode }}{{ query_string(params, collection=progress.collection) }}">{{ step.name }}</a></td>
+            <td class="bars">{{ charts.hbar(step.instances, progress.instances, step.stopped) }}</td>
+            <td>{{ step.instances }}</td>
+            <td>{{ step.finished }}</td>
+            <td>{% if step.stopped %}<span class="stopped">{{ step.stopped }}</span>{% else %}0{% endif %}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </section>
+    {% endfor %}
+{% endblock %}

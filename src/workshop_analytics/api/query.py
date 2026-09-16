@@ -326,6 +326,27 @@ async def trends(
     )
 
 
+@router.get("/trends", summary="Outcomes over time across workshops")
+async def all_trends(
+    request: Request,
+    filters: AnyFilters,
+    bucket: Annotated[str, Query(description="day or week.")] = "day",
+    group_by: Annotated[str, Query(description="A dimension or label key.")] = "",
+) -> Trends:
+    """The outcomes of every session the filters match, bucketed by day
+    or week, and by a dimension when asked; `name` narrows to one
+    workshop, in which case `workshop` names it and is otherwise null."""
+
+    settings = settings_of(request)
+
+    return await answer(
+        request,
+        lambda c: queries.trends(
+            c, filters, utcnow(), settings, bucket.strip(), group_by.strip()
+        ),
+    )
+
+
 @router.get("/workshops/{name}/sessions", summary="A workshop's sessions")
 async def workshop_sessions(
     request: Request,

@@ -28,6 +28,7 @@ ROUTES = [
     "/api/workshops/hello-jupyterlab/coverage",
     "/api/workshops/hello-jupyterlab/checks",
     "/api/workshops/hello-jupyterlab/trends",
+    "/api/trends",
     "/api/workshops/hello-jupyterlab/sessions",
     "/api/workshops/hello-jupyterlab/learners",
     "/api/sessions",
@@ -71,6 +72,19 @@ async def test_every_query_route_answers_from_the_store(
     listing = (await client.get("/api/workshops", headers=auth(api_token))).json()
 
     assert len(listing) == 4
+
+    everything = (await client.get("/api/trends", headers=auth(api_token))).json()
+
+    assert everything["workshop"] is None
+    assert sum(bucket["outcomes"]["journeys"] for bucket in everything["buckets"]) == 8
+
+    named = (
+        await client.get(
+            "/api/trends", params={"name": "hello-jupyterlab"}, headers=auth(api_token)
+        )
+    ).json()
+
+    assert named["workshop"] == {"name": "hello-jupyterlab", "collection": ""}
 
     page = (
         await client.get(

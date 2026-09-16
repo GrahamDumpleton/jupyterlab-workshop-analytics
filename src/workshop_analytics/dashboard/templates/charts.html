@@ -1,0 +1,46 @@
+{# Inline SVG charts drawn from the geometry views.py computes. #}
+
+{% macro bars(chart, caption) %}
+{% if chart.empty %}
+    <p class="empty">{{ caption }}: nothing in this period.</p>
+{% else %}
+    <svg class="chart" viewBox="0 0 {{ chart.width }} {{ chart.height }}" role="img" aria-label="{{ caption }}">
+      {% for tick in chart.ticks %}
+      <line class="grid" x1="{{ chart.plot_left }}" x2="{{ chart.plot_right }}" y1="{{ tick.y }}" y2="{{ tick.y }}"/>
+      <text class="tick" x="{{ chart.plot_left - 6 }}" y="{{ tick.y + 4 }}" text-anchor="end">{{ tick.label }}</text>
+      {% endfor %}
+      {% for bar in chart.bars %}
+      <g class="bar"><title>{{ bar.title }}</title>
+        {% for segment in bar.segments %}<rect class="seg seg-{{ segment.key }}" x="{{ bar.x }}" y="{{ segment.y }}" width="{{ bar.width }}" height="{{ segment.height }}"/>{% endfor %}
+      </g>
+      {% endfor %}
+      {% for label in chart.labels %}
+      <text class="axis" x="{{ label.x }}" y="{{ chart.height - 8 }}" text-anchor="middle">{{ label.text }}</text>
+      {% endfor %}
+    </svg>
+    <ul class="legend">
+      {% for entry in chart.legend %}<li><span class="swatch seg-{{ entry.key }}"></span>{{ entry.label }}</li>{% endfor %}
+    </ul>
+{% endif %}
+{% endmacro %}
+
+{% macro sparkline(values) %}
+{% set peak = values | max %}
+    <svg class="sparkline" viewBox="0 0 {{ values | length * 4 }} 24" role="img" aria-label="Journeys per day over the last {{ values | length }} days">
+      {% for value in values %}{% if value %}<rect x="{{ loop.index0 * 4 }}" y="{{ 24 - 22 * value / peak }}" width="3" height="{{ 22 * value / peak }}"><title>{{ value }}</title></rect>{% endif %}{% endfor %}
+    </svg>
+{% endmacro %}
+
+{% macro hbar(value, maximum, stopped=0) %}
+    <svg class="hbar" viewBox="0 0 100 12" preserveAspectRatio="none" role="img" aria-label="{{ value }} of {{ maximum }}">
+      {% if maximum and value %}<rect class="reach" x="0" y="0" width="{{ 100 * value / maximum }}" height="12"/>{% endif %}
+      {% if maximum and stopped %}<rect class="stop" x="{{ 100 * (value - stopped) / maximum }}" y="0" width="{{ 100 * stopped / maximum }}" height="12"/>{% endif %}
+    </svg>
+{% endmacro %}
+
+{% macro periods(params, period, default) %}
+    <nav class="periods" aria-label="Period">
+      {% for key, label in period_labels.items() %}<a href="{{ query_string(params, period=(none if key == default else key), since=none, until=none, bucket=none) }}"{% if period.key == key %} class="current"{% endif %}>{{ label }}</a>{% endfor %}
+      {% if period.custom %}<span class="current">Custom</span>{% endif %}
+    </nav>
+{% endmacro %}

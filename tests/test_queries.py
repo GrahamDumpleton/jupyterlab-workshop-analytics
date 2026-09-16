@@ -407,6 +407,20 @@ def test_trends_bucket_by_day_and_week_and_list_every_bucket(
     with pytest.raises(QueryError):
         queries.trends(connection, HELLO, now, settings, bucket="month")
 
+    # Without a name the buckets span every workshop the filters match,
+    # and the answer names no workshop.
+    everything = queries.trends(connection, Filters(), now, settings)
+
+    assert everything.workshop is None
+    assert weekly.workshop is not None
+    assert sum(bucket.outcomes.journeys for bucket in everything.buckets) == 8
+
+    collected = queries.trends(
+        connection, Filters(collection=COLLECTION), now, settings
+    )
+
+    assert sum(bucket.outcomes.journeys for bucket in collected.buckets) == 3
+
 
 def test_sessions_list_newest_first_and_page_by_cursor(
     connection: Connection, now: datetime, settings: Settings, seeded: Seeded

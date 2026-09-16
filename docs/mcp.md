@@ -41,7 +41,7 @@ request without a token, or with one that lacks the scope, answers
 | `action_usage` | Runs by trigger and outcome per action. |
 | `coverage` | What nobody ran, per page and directive. |
 | `checks` | Verify and quiz pass rates, attempts, hints, gates. |
-| `trends` | Outcomes by day or week. |
+| `trends` | Outcomes by day or week, of one workshop or across every session the selection matches. |
 | `list_sessions` | Sessions newest first, cursor paged. |
 | `session_timeline` | One session with its pages, timeline, gaps and chain. |
 | `session_events` | One session's raw events. |
@@ -56,8 +56,9 @@ as one `select` object with the fields the API takes as query
 parameters: `labels`, `collection`, `source`, `version`, `frontend`,
 `host`, `platform`, `token_id`, `user`, `since`, `until`, `status`
 and `include_incomplete`. `workshop_summary` and `trends` add
-`group_by`, `trends` adds `bucket`, the paged tools add `limit` and
-`cursor`, and `query_events` adds the event's own fields.
+`group_by`, `trends` adds `bucket` and takes `name` as optional, the
+paged tools add `limit` and `cursor`, and `query_events` adds the
+event's own fields.
 
 A refusal is a tool error with the reason as its text: an ambiguous
 name says which collections it has, so the next call adds

@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% import "charts.html" as charts %}
+{% block title %}Session history{% endblock %}
+{% block heading %}Session history{% endblock %}
+
+{% block content %}
+    <form class="filters card" method="get" action="/sessions">
+      <div class="field wide">
+        <label for="labels">Labels</label>
+        <input id="labels" name="labels" type="text" value="{{ params.labels }}"
+               placeholder="course=intro-git,term=2026-s2" spellcheck="false">
+      </div>
+      <div class="field">
+        <label for="name">Workshop</label>
+        <select id="name" name="name">
+          <option value="">Any</option>
+          {% for name in choices.names %}<option value="{{ name }}"{% if name == params.name %} selected{% endif %}>{{ name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="collection">Collection</label>
+        <select id="collection" name="collection">
+          <option value="">Any</option>
+          <option value="none"{% if params.collection == "none" %} selected{% endif %}>Outside any collection</option>
+          {% for collection in choices.collections %}<option value="{{ collection }}"{% if collection == params.collection %} selected{% endif %}>{{ collection }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="host">Host</label>
+        <select id="host" name="host">
+          <option value="">Any</option>
+          {% for host in choices.hosts %}<option value="{{ host }}"{% if host == params.host %} selected{% endif %}>{{ host }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="frontend">Frontend</label>
+        <select id="frontend" name="frontend">
+          <option value="">Any</option>
+          {% for frontend in choices.frontends %}<option value="{{ frontend }}"{% if frontend == params.frontend %} selected{% endif %}>{{ frontend }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="period">Period</label>
+        <select id="period" name="period">
+          {% for key, label in period_labels.items() %}<option value="{{ key }}"{% if period.key == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="since">From</label>
+        <input id="since" name="since" type="date" value="{{ params.since }}">
+      </div>
+      <div class="field">
+        <label for="until">Until</label>
+        <input id="until" name="until" type="date" value="{{ params.until }}">
+      </div>
+      <fieldset class="field statuses">
+        <legend>Status</legend>
+        {% for status in choices.statuses %}<label><input type="checkbox" name="status" value="{{ status }}"{% if status in selected_statuses %} checked{% endif %}> {{ status }}</label>{% endfor %}
+      </fieldset>
+      <div class="field actions">
+        <button type="submit">Apply</button>
+        <a href="/sessions" class="reset">Reset</a>
+      </div>
+    </form>
+
+    {% if error %}
+    <p class="error" role="alert">{{ error }}</p>
+    {% else %}
+    <section class="card">
+      <h2>Sessions
+        <span class="count">{{ page.total }} match{% if page.total != rows | length %}, showing {{ rows | length }}{% if params.cursor %} older{% endif %}{% endif %}</span>
+        <span class="period-note">{{ period.label if not period.custom else "custom range" }}</span>
+      </h2>
+      {% if not rows %}
+      <p class="empty">No sessions match.</p>
+      {% else %}
+      <table class="history">
+        <thead><tr><th>Session</th><th>Workshop</th><th>Started</th><th>Ended</th><th>Duration</th><th>Page</th><th>Done</th><th>Status</th><th>Labels</th></tr></thead>
+        <tbody>
+        {% for s in rows %}
+          <tr class="{% if s.status in ('finished', 'abandoned', 'lost', 'resumed') %}ended{% endif %}">
+            <td class="who"><a href="/sessions/{{ s.session_id | urlencode }}" title="Session {{ s.session_id }}: open its timeline">{{ s.session_id[-8:] }}</a>
+              <span class="instance" title="{% if s.user %}Learner {{ s.user }}{% else %}Instance {{ s.instance_id }} (no learner identity){% endif %}">{{ s.user or s.instance_id[:8] }} · {{ s.host }} · {{ s.frontend }}</span></td>
+            <td class="who"><a href="/workshops/{{ s.name | urlencode }}?collection={{ s.collection | urlencode }}">{{ s.name }}</a>
+              {% if s.collection %}<span class="instance" title="{{ s.collection }}">{{ s.collection.rsplit('/', 1)[-1] }}</span>{% endif %}</td>
+            <td><time datetime="{{ s.started_at }}">{{ s.started_at }}</time></td>
+            <td>{% if s.ended_at %}<time datetime="{{ s.ended_at }}">{{ s.ended_at }}</time>{% else %}<span class="muted" title="Last event">{% if s.last_seen %}<time datetime="{{ s.last_seen }}">{{ s.last_seen }}</time>{% endif %}</span>{% endif %}</td>
+            <td>{{ s.duration_seconds | duration }}</td>
+            <td class="page">{{ s.current_page }}{% if s.page_count %}<span class="position">{{ s.page_position }} of {{ s.page_count }}</span>{% endif %}</td>
+            <td>{{ s.pages_done }}</td>
+            <td><span class="status status-{{ s.status }}">{{ s.status }}</span>{% if s.gaps %}<span class="gap" title="missing events: {% for g in s.gaps %}{{ g[0] }}{% if g[1] != g[0] %}-{{ g[1] }}{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}">gap</span>{% endif %}</td>
+            <td>{% for key, value in s.labels.items() %}<span class="label">{{ key }}={{ value }}</span> {% endfor %}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+      <footer class="pager">
+        {% if params.cursor %}<a href="/sessions{{ query_string(params) }}">Newest</a>{% endif %}
+        {% if page.next_cursor %}<a href="/sessions{{ query_string(params, cursor=page.next_cursor) }}" rel="next">Older</a>{% endif %}
+        <span class="downloads">Download this selection as
+          <a href="/downloads/sessions.csv{{ query_string(params) }}">sessions.csv</a> or
+          <a href="/downloads/events.ndjson{{ query_string(params) }}">events.ndjson</a></span>
+      </footer>
+    </section>
+    {% endif %}
+{% endblock %}

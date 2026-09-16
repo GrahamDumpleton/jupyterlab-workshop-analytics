@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% import "charts.html" as charts %}
+{% block title %}{{ name }}{% endblock %}
+{% block heading %}<a href="/" class="back">Workshops</a> / {{ name }}{% if collection %} <span class="collection" title="{{ collection }}">{{ collection.rsplit('/', 1)[-1] }}</span>{% endif %}{% endblock %}
+
+{% block selector %}
+    <form class="selector" method="get" action="/workshops/{{ name | urlencode }}">
+      <input type="hidden" name="collection" value="{{ collection }}">
+      {% for key in ('period', 'bucket', 'group_by', 'since', 'until') %}{% if params.get(key) %}<input type="hidden" name="{{ key }}" value="{{ params[key] }}">{% endif %}{% endfor %}
+      <label for="labels">Labels</label>
+      <input id="labels" name="labels" type="text" value="{{ params.labels }}"
+             placeholder="course=intro-git,term=2026-s2" spellcheck="false">
+      <button type="submit">Apply</button>
+    </form>
+{% endblock %}
+
+{% block content %}
+    {% set total = summary.total %}
+    {% set quality = summary.data_quality %}
+    <div class="toolbar">
+      {{ charts.periods(params, period, "30") }}
+      <nav class="periods" aria-label="Bucket">
+        <a href="{{ query_string(params, bucket='day') }}"{% if trends.bucket == 'day' %} class="current"{% endif %}>By day</a>
+        <a href="{{ query_string(params, bucket='week') }}"{% if trends.bucket == 'week' %} class="current"{% endif %}>By week</a>
+      </nav>
+      <form class="group-by" method="get" action="/workshops/{{ name | urlencode }}">
+        <input type="hidden" name="collection" value="{{ collection }}">
+        {% for key in ('labels', 'period', 'bucket', 'since', 'until') %}{% if params.get(key) %}<input type="hidden" name="{{ key }}" value="{{ params[key] }}">{% endif %}{% endfor %}
+        <label for="group_by">Compare by</label>
+        <select id="group_by" name="group_by" onchange="this.form.submit()">
+          <option value="">Outcome</option>
+          {% for key, label in dimensions %}<option value="{{ key }}"{% if key == group_by %} selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        <noscript><button type="submit">Apply</button></noscript>
+      </form>
+      <a class="history-link" href="/sessions{{ query_string({'name': name, 'collection': collection, 'labels': params.labels, 'period': period.key if not period.custom else '', 'since': params.since, 'until': params.until}) }}">Sessions</a>
+    </div>
+
+    {% if attention %}
+    <section class="card attention">
+      <h2>Needs attention</h2>
+      <ul>
+        {% for item in attention %}<li><a href="#{{ item.anchor }}">{{ item.text }}</a></li>{% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
+    <section class="card summary-card">
+      <h2>{{ period.label if not period.custom else "Custom range" }}
+        <span class="count">{{ total.sessions }} sessions, {{ total.journeys }} journeys</span>
+        <span class="quality" title="{{ quality.included }} of {{ quality.considered }} sessions counted; {{ quality.excluded_gaps }} left out for gaps and {{ quality.excluded_missing_head }} for missing first events; {{ quality.with_inventory }} carry a directive inventory">{{ quality.included }} of {{ quality.considered }} counted</span>
+      </h2>
+      <dl class="figures">
+        <div><dt>Finished</dt><dd>{{ total.finished }}{% if total.finished_skipping_gates %} <span class="muted">{{ total.finished_skipping_gates }} skipping gates</span>{% endif %}</dd></div>
+        <div><dt>Abandoned</dt><dd>{{ total.abandoned }}</dd></div>
+        <div><dt>Lost</dt><dd>{{ total.lost }}</dd></div>
+        <div><dt>In progress</dt><dd>{{ total.in_progress }}</dd></div>
+        <div><dt>Completion</dt><dd>{{ total.completion_rate | percent }}</dd></div>
+        <div><dt>Median duration</dt><dd>{% if total.duration_seconds %}{{ total.duration_seconds.p50 | duration }}{% else %}<span class="muted">none finished</span>{% endif %}</dd></div>
+        <div><dt>Median pages done</dt><dd>{% if total.pages_done %}{{ total.pages_done.p50 | round(1) }}{% endif %}</dd></div>
+        <div><dt>Median coverage</dt><dd>{% if total.coverage %}{{ total.coverage.p50 | percent }}{% else %}<span class="muted">no inventory</span>{% endif %}</dd></div>
+        <div><dt>Restarts</dt><dd>{{ total.restarts }}</dd></div>
+        <div><dt>Resumes</dt><dd>{{ total.resumes }}</dd></div>
+      </dl>
+      {% if summary.groups | length > 1 or group_by %}
+      <table class="groups">
+        <thead><tr><th>{{ group_label }}</th><th>Sessions</th><th>Journeys</th><th>Finished</th><th>Abandoned</th><th>Lost</th><th>In progress</th><th>Completion</th><th>Median duration</th></tr></thead>
+        <tbody>
+        {% for group in summary.groups %}
+          <tr>
+            <td>{{ group.value or "(none)" }}</td>
+            <td>{{ group.outcomes.sessions }}</td>
+            <td>{{ group.outcomes.journeys }}</td>
+            <td>{{ group.outcomes.finished }}</td>
+            <td>{{ group.outcomes.abandoned }}</td>
+            <td>{{ group.outcomes.lost }}</td>
+            <td>{{ group.outcomes.in_progress }}</td>
+            <td>{{ group.outcomes.completion_rate | percent }}</td>
+            <td>{% if group.outcomes.duration_seconds %}{{ group.outcomes.duration_seconds.p50 | duration }}{% endif %}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+    </section>
+
+    <section class="card" id="trend">
+      <h2>Journeys {{ "per week" if trends.bucket == "week" else "per day" }}{% if group_by %} <span class="count">by {{ group_label | lower }}</span>{% endif %}</h2>
+      <div class="chart-body">
+        {{ charts.bars(chart, "Journeys started per " + trends.bucket) }}
+      </div>
+    </section>
+
+    <section class="card" id="funnel">
+      <h2>Funnel <span class="count">{{ funnel.journeys }} journeys, {{ funnel.finished }} finished</span></h2>
+      {% if not funnel.steps %}
+      <p class="empty">No page list was seen, so there is no funnel.</p>
+      {% else %}
+      <table class="funnel">
+        <thead><tr><th>#</th><th>Page</th><th class="bars">Reached, and stopped on</th><th>Reached</th><th>Left</th><th>Stopped</th></tr></thead>
+        <tbody>
+        {% for step in funnel.steps %}
+          <tr>
+            <td>{{ step.position }}</td>
+            <td title="{{ step.page.title }}">{{ step.page.path.rsplit('/', 1)[-1] }}</td>
+            <td class="bars">{{ charts.hbar(step.entered, funnel.journeys, step.stopped) }}</td>
+            <td>{{ step.entered }}</td>
+            <td>{{ step.left }}</td>
+            <td>{% if step.stopped %}<span class="stopped">{{ step.stopped }}</span>{% else %}0{% endif %}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% if funnel.unlisted_pages %}<p class="muted note">Pages entered that no page list named: {{ funnel.unlisted_pages | join(", ") }}.</p>{% endif %}
+      {% endif %}
+    </section>
+
+    <section class="card" id="pages">
+      <h2>Time on each page <span class="count">{{ timings.sessions }} sessions</span></h2>
+      {% if not timings.pages %}
+      <p class="empty">No page was left yet, so there are no timings.</p>
+      {% else %}
+      <table>
+        <thead><tr><th>#</th><th>Page</th><th>Sessions</th><th>Entries per session</th><th>Median active</th><th>p90 active</th><th>Longest</th></tr></thead>
+        <tbody>
+        {% for page in timings.pages %}
+          <tr>
+            <td>{{ page.position }}</td>
+            <td title="{{ page.page.title }}">{{ page.page.path.rsplit('/', 1)[-1] }}</td>
+            <td>{{ page.sessions }}</td>
+            <td>{{ page.entries_per_session | round(1) }}</td>
+            <td>{% if page.active_seconds %}{{ page.active_seconds.p50 | duration }}{% endif %}</td>
+            <td>{% if page.active_seconds %}{{ page.active_seconds.p90 | duration }}{% endif %}</td>
+            <td>{% if page.active_seconds %}{{ page.active_seconds.max | duration }}{% endif %}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+    </section>
+
+    <section class="card" id="coverage">
+      <h2>What nobody ran <span class="count">{{ coverage.with_inventory }} of {{ coverage.sessions }} sessions carry an inventory</span></h2>
+      {% if not coverage.with_inventory %}
+      <p class="empty">No session sent a directive inventory; extension 0.2.1 and later do.</p>
+      {% elif not coverage.never_run %}
+      <p class="empty">Every one of the {{ coverage.directives }} directives ran at least once.</p>
+      {% else %}
+      <table class="coverage">
+        <thead><tr><th>#</th><th>Page</th><th>Never run</th></tr></thead>
+        <tbody>
+        {% for page in coverage.pages %}
+          {% set never = page.directives | selectattr("ran", "equalto", 0) | list %}
+          {% if never %}
+          <tr>
+            <td>{{ page.position }}</td>
+            <td title="{{ page.page.title }}">{{ page.page.path.rsplit('/', 1)[-1] }} <span class="muted">{{ never | length }} of {{ page.directives | length }}</span></td>
+            <td>{% for d in never %}<span class="label directive" title="{{ d.type }}, {{ d.trigger }}{% if d.conditional %}, conditional{% endif %}; listed by {{ d.listed }} sessions">{{ d.id }}<span class="muted"> {{ d.type }}, {{ d.trigger }}{% if d.conditional %}, conditional{% endif %}</span></span> {% endfor %}</td>
+          </tr>
+          {% endif %}
+        {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+    </section>
+
+    <section class="card" id="checks">
+      <h2>Checks and quizzes <span class="count">{{ checks.sessions }} sessions{% if checks.gates_skipped %}, {{ checks.gates_skipped }} gates skipped{% endif %}</span></h2>
+      {% if not checks.checks %}
+      <p class="empty">No check or quiz ran.</p>
+      {% else %}
+      <table class="checks">
+        <thead><tr><th>Check</th><th>Kind</th><th>Sessions</th><th>Passed</th><th>Pass rate</th><th>Attempts to pass</th><th>Errors</th><th>Skipped</th><th>Set off by</th></tr></thead>
+        <tbody>
+        {% for check in checks.checks %}
+          <tr>
+            <td>{{ check.id }}</td>
+            <td>{{ check.kind }}</td>
+            <td>{{ check.sessions }}</td>
+            <td>{{ check.passed }}</td>
+            <td>{{ check.pass_rate | percent }}</td>
+            <td>{% if check.attempts_to_pass %}{{ check.attempts_to_pass.p50 | round(1) }} <span class="muted">up to {{ check.attempts_to_pass.max | int }}</span>{% endif %}</td>
+            <td>{{ check.errors or "" }}</td>
+            <td>{{ check.skipped or "" }}</td>
+            <td class="muted">{% for trigger, count in check.by_trigger.items() %}{{ trigger }} {{ count }}{% if not loop.last %}, {% endif %}{% endfor %}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+      {% if checks.hints %}
+      <p class="note">Hints opened: {% for hint in checks.hints %}{{ hint.id }} <span class="muted">{{ hint.opened }} times by {{ hint.sessions }} sessions</span>{% if not loop.last %}, {% endif %}{% endfor %}.</p>
+      {% endif %}
+    </section>
+{% endblock %}
