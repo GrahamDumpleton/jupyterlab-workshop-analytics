@@ -45,6 +45,10 @@ spec:
               value: /etc/workshop-analytics/wrapture.toml
             - name: COOKIE_SECURE
               value: "true"
+            # Only the ingress controller can reach the pod, so its
+            # X-Forwarded-* headers are trusted from any address.
+            - name: FORWARDED_ALLOW_IPS
+              value: "*"
           readinessProbe:
             httpGet:
               path: /healthz

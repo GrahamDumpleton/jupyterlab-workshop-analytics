@@ -127,6 +127,21 @@ the singleuser pods post to
 never leave the cluster, and the dashboard is reached through a
 port-forward or an internal route.
 
+**Behind a TLS-terminating front.** A cluster reached through a
+Cloudflare tunnel or a similar front has TLS end at the front and
+plain HTTP from there to the ingress controller, so the Ingress
+carries no `tls` block and no redirect annotation. The service copes:
+it builds no absolute URLs of its own, the cookie is Secure because
+the base sets `COOKIE_SECURE=true`, and the Deployment sets
+`FORWARDED_ALLOW_IPS=*` so uvicorn takes the scheme and client
+address from the `X-Forwarded-*` headers whatever address the ingress
+controller connects from, which only it can. One thing is the
+controller's to get right: Envoy under Contour rewrites
+`X-Forwarded-Proto` to the scheme it received, `http`, unless
+Contour's `num-trusted-hops` tells it to trust the front's headers;
+without that the service sees `http`, which only matters for the
+absolute URL in a trailing-slash redirect.
+
 `just manifests local` and `just manifests production` render an
 overlay without applying it.
 
